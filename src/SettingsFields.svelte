@@ -1,6 +1,7 @@
 <script lang="ts">
   // Поля настроек — одни и те же в мастере первого запуска (по шагу на part) и в окне настроек.
   // Вид — из src/ui; здесь только раскладка.
+  import pennyIcon from '../src-tauri/icons/32x32.png';
   import { t } from './lib/i18n';
   import { ENABLED as mouseChaseEnabled } from './lib/mouse';
   import { CHATTER, HUNTER_AREAS, MODES, NAME_MAX, TOPICS, suggestName, topicName, type Chatter, type HunterArea, type Mode, type Settings, type Topic } from './lib/settings';
@@ -32,16 +33,11 @@
     screen: [t('Весь экран', 'Whole screen'), t('мышь забегает на окна и прячется в них', 'the mouse runs onto windows and hides in them')],
   };
   const CHATTER_TEXT: Record<Chatter, [string, string]> = {
-    quiet: [t('Молчун', 'Quiet'), t('сам не заговаривает', 'never starts talking')],
+    quiet: [t('Молчунья', 'Quiet'), t('сама не заговаривает', 'never starts talking')],
     sometimes: [t('Иногда', 'Sometimes'), t('облачко раз в 10–30 минут', 'a bubble every 10–30 minutes')],
     often: [t('Часто', 'Often'), t('заговаривает чаще', 'talks more often')],
   };
-  // Собака и дракон видны заранее, чтобы было понятно: кошка не единственная навсегда
-  const PETS = [
-    { id: 'cat', name: t('Кошка', 'Cat'), ready: true },
-    { id: 'dog', name: t('Собака', 'Dog'), ready: false },
-    { id: 'dragon', name: t('Дракон', 'Dragon'), ready: false },
-  ];
+  const PETS = [{ id: 'rat', name: t('Крыска', 'Rat'), ready: true }];
 
   /** Темы держим в порядке списка, как раньше делал bind:group. */
   function setTopic(topic: Topic, on: boolean) {
@@ -61,6 +57,7 @@
           disabled={!p.ready || disabled}
           hint={p.ready ? undefined : t('скоро', 'soon')}
         >
+          <img class="portrait" src={pennyIcon} width="32" height="32" alt="" />
           {p.name}
         </Radio>
       {/each}
@@ -156,15 +153,15 @@
       </div>
     {/if}
 
-    <Check bind:checked={settings.feeder} hint={t('Насыпал порций — кошка ест сама, когда проголодается.', 'Fill it up and the cat eats on her own when she gets hungry.')} {disabled}>
+    <Check bind:checked={settings.feeder} hint={t('Насыпал порций — Пенни ест сама, когда проголодается.', 'Fill it up and Penny eats on her own when she gets hungry.')} {disabled}>
       {t('Кормушка', 'Feeder')}
     </Check>
 
     <Check
       bind:checked={settings.bed}
       hint={t(
-        'Лежак на полу — кошка чаще спит в нём. Его, как и миску, можно перетащить мышью.',
-        'A bed on the floor: the cat sleeps in it more often. You can drag it with the mouse, like the bowl.',
+        'Лежак на полу — Пенни чаще спит в нём. Его, как и миску, можно перетащить мышью.',
+        'A bed on the floor: Penny sleeps in it more often. You can drag it with the mouse, like the bowl.',
       )}
       {disabled}
     >
@@ -179,8 +176,8 @@
     <Check
       bind:checked={settings.hunter}
       hint={t(
-        'Иногда по экрану пробегает мышь, кошка гонится за ней 2–4 минуты; на резких разворотах её заносит. Мышь всегда убегает.',
-        'Now and then a mouse runs across the screen and the cat chases it for 2–4 minutes, skidding on sharp turns. The mouse always gets away.',
+        'Иногда по экрану пробегает мышь, Пенни гонится за ней 2–4 минуты; на резких разворотах её заносит. Мышь всегда убегает.',
+        'Now and then a mouse runs across the screen and Penny chases it for 2–4 minutes, skidding on sharp turns. The mouse always gets away.',
       )}
       {disabled}
     >
@@ -201,8 +198,8 @@
     <Check
       bind:checked={settings.yarn}
       hint={t(
-        'Раз в час-два кошка выносит из-за края экрана клубок и пару минут катает его по панели задач, а потом укатывает обратно.',
-        'Every hour or two the cat brings a ball of yarn from off screen, rolls it along the taskbar for a couple of minutes, then rolls it back.',
+        'Раз в час-два Пенни выносит из-за края экрана клубок и пару минут катает его по панели задач, а потом укатывает обратно.',
+        'Every hour or two Penny brings a ball of yarn from off screen, rolls it along the taskbar for a couple of minutes, then rolls it back.',
       )}
       {disabled}
     >
@@ -228,6 +225,7 @@
 {/if}
 
 <style>
+  .portrait { image-rendering: pixelated; vertical-align: middle; margin-right: 8px; }
   .pets {
     display: flex;
     gap: 14px;

@@ -388,7 +388,7 @@ fn tray_items() -> Vec<menu::Item> {
         // кошка умеет уходить за край экрана — отсюда её зовут обратно
         entry("call", tr("Позвать питомца", "Call your pet"), Some(tr("если ушла за край экрана", "if she wandered off screen"))),
         // некормленый кот уходит навсегда — без этого пункта вернуть питомца было бы нечем
-        entry("adopt", tr("Новый котик", "Adopt a new cat"), Some(tr("если прежний сбежал", "if the last one ran away"))),
+        entry("adopt", tr("Новая крыска", "Adopt a new rat"), Some(tr("если прежняя сбежала", "if she ran away"))),
     ]);
     #[cfg(windows)]
     items.push(if win::bossed() {

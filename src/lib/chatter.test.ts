@@ -83,7 +83,7 @@ describe('say', () => {
   });
 
   it('keeps work and rest apart', () => {
-    const work = ['Ты молодец.', 'Я тут, рядом.', 'Хорошо работаем.', 'Мур. Не отвлекаю.'];
+    const work = ['Ты молодец.', 'Я тут, рядом.', 'Хорошо работаем.', 'Я тихонько посижу.'];
     for (let i = 0; i < 20; i++) {
       const r = () => i / 20;
       const [, line] = say(due(TUE), moment(TUE, { today: 0 }), 'sometimes', r);
@@ -98,7 +98,7 @@ describe('say', () => {
     const texts = (name?: string) =>
       Array.from({ length: 40 }, (_, i) => say(due(SAT), moment(SAT, { today: 0, name }), 'sometimes', () => i / 40)[1]?.text);
     expect(texts().some((t) => t?.includes('{name}') || t?.includes('Это я'))).toBe(false);
-    expect(texts('Мурка')).toContain('Мяу! Это я, Мурка.');
+    expect(texts('Мурка')).toContain('Это я, Мурка.');
   });
 
   it('does not repeat the last line', () => {

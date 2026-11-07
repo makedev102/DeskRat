@@ -5,7 +5,7 @@
   import { open } from '@tauri-apps/plugin-dialog';
   import { onMount, tick } from 'svelte';
   import { t } from './lib/i18n';
-  import { defaults, serialize, suggestName } from './lib/settings';
+  import { defaults, serialize, NAMES } from './lib/settings';
   import { dirHint, errorText, isDriveRoot, pickDir } from './lib/setup';
   import SettingsFields from './SettingsFields.svelte';
   import { Button, Dialog, Group, Hint, Radio, TextInput } from './ui';
@@ -14,7 +14,7 @@
 
   let step = $state(0);
   // имя сразу предложено: стереть проще, чем придумать с нуля
-  let settings = $state({ ...defaults(), name: suggestName(Math.random) });
+  let settings = $state({ ...defaults(), name: t(NAMES.ru[0], NAMES.en[0]) });
   let dir = $state('');
   let suggested = $state<string[]>([]);
   /** Корень диска, вместо которого подставили `X:\DeskRat`; показываем, чтобы можно было отказаться. */

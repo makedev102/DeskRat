@@ -80,10 +80,10 @@ export type HunterArea = (typeof HUNTER_AREAS)[number];
 /** Длиннее имя не влезет в облачко и меню трея. */
 export const NAME_MAX = 20;
 
-/** Подсказки на первом запуске: кошка в репликах — «она», имена ей под стать. */
+/** Первое предложение — Пенни; выбранное человеком имя сохраняется отдельно. */
 export const NAMES: Record<Lang, readonly string[]> = {
-  ru: ['Мурка', 'Соня', 'Луна', 'Тучка', 'Ириска', 'Пуша', 'Сима', 'Бусинка', 'Дуся', 'Плюшка', 'Фиса', 'Вишня'],
-  en: ['Luna', 'Misty', 'Cleo', 'Mochi', 'Ginger', 'Nala', 'Pepper', 'Willow', 'Biscuit', 'Olive', 'Hazel', 'Pumpkin'],
+  ru: ['Пенни', 'Соня', 'Луна', 'Тучка', 'Ириска', 'Пуша', 'Сима', 'Бусинка', 'Дуся', 'Плюшка', 'Фиса', 'Вишня'],
+  en: ['Penny', 'Misty', 'Cleo', 'Mochi', 'Ginger', 'Nala', 'Pepper', 'Willow', 'Biscuit', 'Olive', 'Hazel', 'Pumpkin'],
 };
 
 /** Случайное имя из подсказок, но не `except` — кнопка «Другое» должна что-то менять. */
@@ -114,8 +114,8 @@ export interface Settings {
   hunterArea: HunterArea;
   /** «Клубок»: раз в час-два кошка выносит из-за края клубок и пару минут катает его по полу. */
   yarn: boolean;
-  /** Пока только кошка; собака и дракон позже. */
-  pet: 'cat';
+  /** Пенни; старое значение cat при чтении становится rat. */
+  pet: 'rat';
   topics: Topic[];
   mode: Mode;
   chatter: Chatter;
@@ -140,7 +140,7 @@ export function defaults(): Settings {
     hunterArea: 'taskbar',
     // клубок тихий — не носится и не мешает, поэтому включён сразу
     yarn: true,
-    pet: 'cat',
+    pet: 'rat',
     topics: [],
     mode: 'calm',
     chatter: 'sometimes',
@@ -178,7 +178,8 @@ export function parse(raw: string | null): Settings {
     hunter: bool(s.hunter, d.hunter),
     hunterArea: oneOf(HUNTER_AREAS, s.hunterArea, d.hunterArea),
     yarn: bool(s.yarn, d.yarn),
-    pet: 'cat',
+    // Единственный персонаж: cat из прежних настроек совместим, остальные поля читаются независимо.
+    pet: 'rat',
     topics: Array.isArray(s.topics) ? TOPICS.filter((t) => (s.topics as unknown[]).includes(t)) : d.topics,
     mode: oneOf(MODES, s.mode, d.mode),
     chatter: oneOf(CHATTER, s.chatter, d.chatter),

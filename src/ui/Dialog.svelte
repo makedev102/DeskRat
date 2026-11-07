@@ -37,7 +37,7 @@
   <!-- Тащат за саму полосу: Tauri смотрит только на элемент под курсором, поэтому
        значок и текст пропускают мышь к ней (pointer-events: none) -->
   <div class="bar" data-tauri-drag-region>
-    <span class="paw"><Icon name="paw" /></span>
+    <span class="paw"><Icon name="rat" /></span>
     <span class="title">{title}</span>
     {#if minimizable}
       <button type="button" class="ctl" aria-label={t('Свернуть', 'Minimize')} title={t('Свернуть', 'Minimize')} onclick={minimize}>

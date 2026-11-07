@@ -97,11 +97,11 @@ describe('stats', () => {
     expect(row('Знакомы')).toEqual({ label: 'Знакомы', value: '6 дней', hint: 'с 1 ноября 2026' });
     expect(row('Покормили').value).toBe('1 раз');
     expect(row('Погладили').value).toBe('22 раза');
-    expect(row('Мыши')).toEqual({ label: 'Мыши', value: '5', hint: 'поймана 3 из 5' });
+    expect(row('Погоня за мышью (отключена)')).toEqual({ label: 'Погоня за мышью (отключена)', value: '5', hint: 'поймана 3 из 5' });
     expect(row('Кино вместе')).toEqual({ label: 'Кино вместе', value: '2 фильма', hint: '4 ч' });
     // без мышей и без кино приписки нет, а не «0 из 0»
     const empty = groups(fresh(NOW), NOW).flatMap((x) => x.rows);
-    expect(empty.find((r) => r.label === 'Мыши')!.hint).toBeUndefined();
+    expect(empty.find((r) => r.label === 'Погоня за мышью (отключена)')!.hint).toBeUndefined();
     expect(empty.find((r) => r.label === 'Кино вместе')!.hint).toBeUndefined();
   });
 });

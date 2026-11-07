@@ -189,7 +189,7 @@ export function groups(s: Stats, now: number): Group[] {
     {
       title: t('Игры', 'Games'),
       rows: [
-        { label: t('Мыши', 'Mice'), value: `${s.mice}`, hint: caught },
+        { label: t('Погоня за мышью (отключена)', 'Mouse chase (disabled)'), value: `${s.mice}`, hint: caught },
         { label: t('Клубки', 'Yarn balls'), value: `${s.yarns}` },
         { label: t('Лазерная указка', 'Laser pointer'), value: times(s.lasers) },
       ],

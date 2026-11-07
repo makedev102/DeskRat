@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setLang } from './i18n';
 import { cleanName, defaults, NAME_MAX, NAMES, parse, serialize, suggestName } from './settings';
 
 describe('настройки', () => {
@@ -56,6 +57,21 @@ describe('настройки', () => {
       expect(NAMES.ru).toContain(n);
       expect(n).not.toBe('Мурка');
     }
+  });
+
+  it('старый cat становится rat без потери остальных настроек и имени', () => {
+    const saved = { ...defaults(), name: 'Мурка', feeder: true, bed: true, hunter: true, hunterArea: 'screen' as const, topics: ['кино' as const], tmdbKey: 'key' };
+    expect(parse(JSON.stringify({ ...saved, pet: 'cat' }))).toEqual(saved);
+    expect(saved.pet).toBe('rat');
+  });
+
+  it('первое имя — Пенни / Penny; другое не повторяет выбранное', () => {
+    for (const language of ['ru', 'en'] as const) {
+      setLang(language);
+      expect(suggestName(() => 0)).toBe(language === 'ru' ? 'Пенни' : 'Penny');
+      expect(suggestName(() => 0, NAMES[language][0])).not.toBe(NAMES[language][0]);
+    }
+    setLang('ru');
   });
 
   it('темы — в порядке списка и без повторов', () => {

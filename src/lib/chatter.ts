@@ -118,9 +118,9 @@ interface Lines {
 
 const LINES: Record<Lang, Lines> = {
   ru: {
-    hungry: ['Мяу… Миска пустая.', 'Есть хочу. Клик по миске?'],
-    work: ['Ты молодец.', 'Я тут, рядом.', 'Хорошо работаем.', 'Мур. Не отвлекаю.', '{name} на посту.'],
-    rest: ['Мур.', 'Хорошо сидим.', 'Погладишь?', 'А я бы вздремнула.', 'Мяу!', 'Ничего не происходит. Красота.', 'Мяу! Это я, {name}.'],
+    hungry: ['Миска пустая. Подсыплешь?', 'Есть хочу. Клик по миске?'],
+    work: ['Ты молодец.', 'Я тут, рядом.', 'Хорошо работаем.', 'Я тихонько посижу.', '{name} на посту.'],
+    rest: ['Я здесь.', 'Хорошо сидим.', 'Погладишь?', 'А я бы вздремнула.', 'Что там интересного?', 'Ничего не происходит. Красота.', 'Это я, {name}.'],
     today: 'Сегодня мы за компом уже {today}.',
     care: 'Уже {session} без перерыва. Потянемся?',
     praise: '{session} в фокусе. Ты молодец.',
@@ -129,9 +129,9 @@ const LINES: Record<Lang, Lines> = {
     friday: 'Пятница! Маленькая вечеринка?',
   },
   en: {
-    hungry: ['Meow… The bowl is empty.', "I'm hungry. Click the bowl?"],
-    work: ["You're doing great.", "I'm right here.", 'Good work, team.', "Purr. Won't distract you.", '{name} on duty.'],
-    rest: ['Purr.', 'Nice and cozy.', 'Pet me?', 'I could use a nap.', 'Meow!', 'Nothing is happening. Lovely.', "Meow! It's me, {name}."],
+    hungry: ['The bowl is empty. A little food?', "I'm hungry. Click the bowl?"],
+    work: ["You're doing great.", "I'm right here.", 'Good work, team.', "I'll sit quietly.", '{name} on duty.'],
+    rest: ['Here I am.', 'Nice and cozy.', 'Pet me?', 'I could use a nap.', 'Anything interesting over there?', 'Nothing is happening. Lovely.', "It's me, {name}."],
     today: "We've been at the computer for {today} today.",
     care: '{session} without a break. Time to stretch?',
     praise: '{session} of focus. Well done.',
