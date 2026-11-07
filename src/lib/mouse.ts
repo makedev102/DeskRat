@@ -34,6 +34,9 @@ import {
 } from './roam';
 import type { HunterArea } from './settings';
 
+/** Кошачья погоня отключена для Пенни; настройки и общее окно клубка сохранены. */
+export const ENABLED = false;
+
 /** Скорость мыши, логич. px/с: быстрее бегущей кошки (RUN). */
 export const MOUSE_RUN = 150;
 /** Погоня длится от CHASE_MIN до CHASE_MAX мс. */

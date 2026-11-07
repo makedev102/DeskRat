@@ -2,6 +2,7 @@
   import { invoke } from '@tauri-apps/api/core';
   import { emitTo, listen } from '@tauri-apps/api/event';
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+  import { cursorPosition } from '@tauri-apps/api/window';
   import { onMount } from 'svelte';
   import * as calls from './lib/call';
   import * as chatter from './lib/chatter';
@@ -12,6 +13,7 @@
   import * as yarn from './lib/yarn';
   import * as revenge from './lib/revenge';
   import * as roam from './lib/roam';
+  import * as summon from './lib/summon';
   import * as news from './lib/news';
   import { parse, serialize, TOPICS, type Chatter, type HunterArea, type Settings, type Topic } from './lib/settings';
   import * as sleepy from './lib/sleep';
@@ -257,6 +259,10 @@
   let hunterArea: HunterArea = 'taskbar';
   /** Погоня за мышью; null — мыши нет. */
   let hunt: mouse.Chase | null = null;
+  let summoned: summon.Summon | null = null;
+  let summonCursor: roam.Dot | null = null;
+  let cursorReading = false;
+  let cursorReadAt = 0;
   /** Когда пустить следующую мышь; кошка занята — мышь подождёт, пока освободится. */
   let nextHunt = 0;
   /** Мышь вызвана из трея dev-сборки: выбегает, как только кошка дома и не спит, — без ожидания безделья. */
@@ -602,7 +608,7 @@
     // Уход и возвращение сверяются с голодом и сном каждый кадр, а не только по событиям:
     // так их не потерять ни при запуске, ни при побудке, ни при «Новом котике».
     // несомую мир не двигает: уйти за край или к миске она успеет, когда отпустят
-    if (pet && world && !carried && !mouse.owns(hunt) && !yarn.owns(game) && !revenge.owns(payback)) {
+    if (pet && world && !carried && !summoned && !mouse.owns(hunt) && !yarn.owns(game) && !revenge.owns(payback)) {
       if (!away()) {
         if (pet.move === 'out') comeBack(now);
       } else if (pet.move !== 'out' && pet.exit === 0) pet = roam.leave(pet, world);
@@ -639,6 +645,7 @@
   /** Гоняться за мышью можно: охотник включён, кошка дома, бодрая, не ест, не в руках и лазер не светит. */
   function canHunt(now: number): boolean {
     return (
+      mouse.ENABLED &&
       hunterOn &&
       !bossed &&
       !!pet &&
@@ -657,6 +664,7 @@
   /** Играть с клубком можно: как с мышью, только ещё и сытой — голодная идёт к миске, а не играет. */
   function canYarn(now: number): boolean {
     return (
+      !summoned &&
       yarnOn &&
       !bossed &&
       !!pet &&
@@ -681,6 +689,7 @@
   function canRevenge(now: number): boolean {
     const mood = sleepy.mood(nap);
     return (
+      !summoned &&
       !!pet &&
       !!world &&
       !carried &&
@@ -721,6 +730,7 @@
   /** Стоит без дела: не голодна, не умывается, не идёт спать в лежак, не гладят. */
   function idle(now: number): boolean {
     return (
+      !summoned &&
       pet!.move === 'still' &&
       !pet!.hunt &&
       !roam.onStrip(pet!) &&
@@ -761,6 +771,7 @@
   /** Поза на сейчас; null — кошки на экране нет. */
   function choose(now: number): AnimName | null {
     if (carried) return 'carried';
+    if (summoned && pet) return summon.pose(summoned, pet);
     if (pet?.hunt) {
       if (now < bonkUntil || pet.hunt.mode === 'bonk') return 'bonk';
       if (pet.hunt.mode === 'skid') return 'skid';
@@ -869,6 +880,7 @@
   /** Кошке есть когда поговорить: дома, бодрая, стоит, ни с кем не занята. */
   function free(): boolean {
     return (
+      !summoned &&
       !!pet &&
       !!world &&
       !!anim &&
@@ -1053,10 +1065,20 @@
         persist(now);
       }
     }
-    const was = pet && `${pet.move} ${pet.hunt?.mode}`;
+    const was = pet && `${pet.move} ${pet.hunt?.mode} ${summoned?.phase}`;
     // мышь бегает и пока кошку несут: погоню это прерывает, но мышь удирает своим ходом
     let ruled = false;
     let event: mouse.HuntEvent | null = null;
+    if (summoned && pet && world) {
+      if (!canSummon(now)) {
+        summoned = null;
+        pet = summon.halt(pet);
+      } else {
+        sampleSummonCursor(now);
+        [summoned, pet, event] = summon.tick(summoned, world, pet, summonCursor, now, dt);
+        ruled = true;
+      }
+    }
     if (hunt && pet && world) {
       const arena = mouse.arena(world, hunterArea, shelves);
       if (mouse.owns(hunt) && !canHunt(now)) {
@@ -1155,7 +1177,7 @@
       // дошла, приземлилась или сорвалась — поза меняется сразу, не дожидаясь следующего кадра анимации
       // место — в хранилище на каждой остановке: перезапуск не должен уносить её в угол
       if (event === 'arrived' || event === 'gone') persist(now);
-      if (`${pet.move} ${pet.hunt?.mode}` !== was) render();
+      if (`${pet.move} ${pet.hunt?.mode} ${summoned?.phase}` !== was) render();
       else place();
     }
     const perched = pet?.hwnd != null || bowlPlace?.hwnd != null || (bedOn && bedPlace?.hwnd != null);
@@ -1239,6 +1261,7 @@
       lastMove = now;
       persist(now);
     } else if (!disturb(now)) {
+      if (summoned) { summoned = null; if (pet) pet = summon.halt(pet); }
       pettedUntil = now + PETTED_MS;
       stats.petted++;
       // гладят без передышки — это уже тычки (revenge.PESTER_CLICKS)
@@ -1300,6 +1323,40 @@
     emitTo('settings', 'settings', s).catch(console.error);
   }
 
+  function canSummon(now: number): boolean {
+    return !frozen && !!pet && !!world && pet.move !== 'out' && !carried && !holding && !away() && !bossed &&
+      !pet.hunt && !mouse.owns(hunt) && !yarn.owns(game) && !revenge.owns(payback) && dot === null &&
+      sleepy.mood(nap) === 'awake' && now >= eatUntil && !isHungry(belly) && !mealPending;
+  }
+
+  /** Чтение курсора уже разрешено core:default. Только на время явного зова, без изменения курсора. */
+  function sampleSummonCursor(now: number) {
+    if (!summoned || summoned.phase === 'curious' || cursorReading || now - cursorReadAt < 200) return;
+    cursorReading = true;
+    cursorReadAt = now;
+    const token = summoned.last;
+    cursorPosition().then((position) => {
+      if (summoned?.last === token) summonCursor = { x: position.x, y: position.y };
+    }).catch(() => {
+      // Без позиции курсора не выбираем выдуманную цель и не оставляем Пенни в ожидании.
+      if (summoned?.last === token) { summoned = null; if (pet) pet = summon.halt(pet); render(); }
+    }).finally(() => { cursorReading = false; });
+  }
+
+  function callPenny() {
+    const now = Date.now();
+    if (!canSummon(now) || summoned?.count === 3) return;
+    summoned = summon.call(summoned, now);
+    pet = summon.halt(pet!);
+    summonCursor = null;
+    cursorReadAt = 0;
+    sampleSummonCursor(now);
+    const hint = `${summoned.count}/3 · ${summoned.count === 1 ? t('услышала — позовите ещё', 'listening — call again') : t('повернулась — ещё раз', 'turned — once more')}`;
+    emitTo('menu', 'penny-call-progress', { hint }).catch(console.error);
+    if (summoned.count === 3) invoke('close_menu').catch(console.error);
+    render();
+  }
+
   /** ПКМ по кошке — своё меню (menu.rs): фокус у человека не забирает, выбор приходит событием menu-pick. */
   function showMenu() {
     const s = parse(store.get('settings'));
@@ -1310,6 +1367,7 @@
         ? { id: 'about', text: s.name, hint: t(`знакомы ${count(known, ['день', 'дня', 'дней'], ['day', 'days'])}`, `friends for ${count(known, ['день', 'дня', 'дней'], ['day', 'days'])}`) }
         : { id: 'about', text: t('Без имени', 'No name'), hint: t('назвать — в настройках', 'name her in settings') },
       { separator: true },
+      { id: 'penny-call', text: t('Пенни!', 'Penny!'), hint: t('позовите три раза, затем укажите место курсором', 'call three times, then point with the cursor'), disabled: !canSummon(Date.now()) || summoned?.count === 3 },
       {
         id: 'feeder',
         text: t('Кормушка', 'Feeder'),
@@ -1319,9 +1377,10 @@
       { id: 'bed', text: t('Лежак', 'Bed'), checked: s.bed, hint: t('тащи мышью, как и миску', 'drag it like the bowl') },
       { id: 'hideFromCapture', text: t('Прятать от записи экрана', 'Hide from screen capture'), checked: s.hideFromCapture },
       { id: 'laser', text: t('Лазерная указка', 'Laser pointer'), checked: dot !== null, hint: t('или зажать Ctrl; Esc — выключить', 'or hold Ctrl; Esc turns it off') },
-      { id: 'hunter', text: t('Охотник', 'Hunter'), checked: s.hunter, hint: t('иногда пробегает мышь', 'a mouse runs by now and then') },
-      // в меню нет радиокнопок: область — галочкой, снятая — панель задач
-      { id: 'hunterArea', text: t('Мышь по всему экрану', 'Mouse on the whole screen'), checked: s.hunterArea === 'screen', hint: t('иначе — по панели задач', 'otherwise along the taskbar') },
+      ...(mouse.ENABLED ? [
+        { id: 'hunter', text: t('Охотник', 'Hunter'), checked: s.hunter, hint: t('иногда пробегает мышь', 'a mouse runs by now and then') },
+        { id: 'hunterArea', text: t('Мышь по всему экрану', 'Mouse on the whole screen'), checked: s.hunterArea === 'screen', hint: t('иначе — по панели задач', 'otherwise along the taskbar') },
+      ] : []),
       { id: 'yarn', text: t('Клубок', 'Yarn'), checked: s.yarn, hint: t('раз в час-два катает по панели задач', 'rolls it along the taskbar every hour or two') },
       { separator: true },
       { id: 'stats', text: t('Статистика…', 'Stats…') },
@@ -1331,7 +1390,8 @@
   }
 
   function menuPick(id: string) {
-    if (id === 'feeder' || id === 'bed' || id === 'hideFromCapture' || id === 'hunter' || id === 'hunterArea' || id === 'yarn') toggle(id);
+    if (id === 'penny-call') callPenny();
+    else if (id === 'feeder' || id === 'bed' || id === 'hideFromCapture' || id === 'hunter' || id === 'hunterArea' || id === 'yarn') toggle(id);
     else if (id === 'laser') invoke('set_laser', { on: dot === null }).catch(console.error);
     else if (id === 'settings') invoke('open_settings').catch(console.error);
     else if (id === 'stats') invoke('open_stats').catch(console.error);
@@ -1474,6 +1534,7 @@
     });
     // «Охотник» оттуда же: выключен — включает; мышь выбегает сразу, спящую кошку — дождётся
     const unhunter = listen('dev-hunter', () => {
+      if (!mouse.ENABLED) return;
       if (!hunterOn) toggle('hunter');
       nextHunt = 0;
       huntNow = true;

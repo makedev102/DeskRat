@@ -7,6 +7,7 @@
   // (menu_size); ставит и показывает окно уже Rust. Спрятанный WebView может не крутить кадры,
   // поэтому меряем сразу после tick(), без requestAnimationFrame и ResizeObserver.
   import { invoke } from '@tauri-apps/api/core';
+  import { emitTo } from '@tauri-apps/api/event';
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { onMount, tick } from 'svelte';
   import { isSeparator, type MenuItem, type MenuShow } from './lib/menu';
@@ -37,6 +38,11 @@
     const hit = downOn === id;
     downOn = null;
     if (!hit || disabled || (e.button !== 0 && e.button !== 2)) return;
+    if (id === 'penny-call') {
+      // Три нажатия в одном меню. Владелец считает зов и закрывает меню после третьего.
+      emitTo('pet', 'menu-pick', { id }).catch(console.error);
+      return;
+    }
     invoke('menu_pick', { gen, id }).catch(console.error);
   }
 
@@ -48,6 +54,9 @@
       downOn = null;
       await tick();
       report();
+    });
+    const offCall = win.listen<{ hint: string }>('penny-call-progress', (e) => {
+      items = items.map((item) => !isSeparator(item) && item.id === 'penny-call' ? { ...item, hint: e.payload.hint } : item);
     });
 
     // Меню открыли на мониторе с другим масштабом — пиксели пересчитались, размер тоже
@@ -65,6 +74,7 @@
 
     return () => {
       off.then((f) => f());
+      offCall.then((f) => f());
       dpr?.removeEventListener('change', rescale);
     };
   });

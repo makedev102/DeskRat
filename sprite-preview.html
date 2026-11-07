@@ -2,104 +2,245 @@
 <html lang="ru">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Пенни — базовые анимации</title>
+<title>Пенни — все анимации и переходы</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 24px auto; padding: 0 20px; max-width: 1280px; background: #efedf2; color: #302c38; font: 15px/1.5 system-ui; }
-  h1 { margin-bottom: 4px; font-size: 24px; }
-  p { margin: 4px 0 16px; }
-  label, button { margin-right: 16px; }
-  select, button { font: inherit; padding: 4px 10px; }
-  main { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
-  article { min-width: 0; }
-  h2 { font-size: 17px; margin: 0 0 6px; }
-  .stage { padding: 8px; margin-bottom: 8px; border-radius: 8px; }
-  .light { background: #fffdfa; color: #605968; }
-  .dark { background: #252735; color: #d3cedd; }
-  .pair { display: flex; justify-content: space-around; }
-  figure { margin: 0; text-align: center; }
-  canvas { display: block; image-rendering: pixelated; }
-  .large { width: 128px; height: 128px; }
-  .small { width: 32px; height: 32px; margin: 4px auto; }
-  figcaption { font-size: 12px; }
-  footer { margin-top: 16px; color: #605968; }
-  @media (max-width: 1190px) { main { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 620px) { main { grid-template-columns: 1fr; } }
+  body { margin: 20px auto; padding: 0 20px; max-width: 1400px; background: #efedf2; color: #302c38; font: 14px/1.5 system-ui; }
+  h1 { margin-bottom: 4px; font-size: 24px; } h2 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 4px 0 14px; } label, button { margin-right: 10px; }
+  select, button { font: inherit; padding: 4px 8px; } button { cursor: pointer; }
+  .controls { position: sticky; top: 0; z-index: 1; padding: 10px; background: #efedf2f5; border-bottom: 1px solid #cbc5d3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  main { display: grid; grid-template-columns: repeat(4, minmax(290px, 1fr)); gap: 14px; margin-top: 18px; }
+  article { min-width: 0; } article[hidden] { display: none; }
+  .stage { padding: 8px; margin-bottom: 6px; border-radius: 8px; }
+  .light { background: #fffdfa; color: #605968; } .dark { background: #252735; color: #d3cedd; }
+  .pair, .scenes { display: flex; justify-content: space-around; gap: 8px; flex-wrap: wrap; }
+  figure { margin: 0; text-align: center; } canvas { display: block; image-rendering: pixelated; }
+  .large { width: 128px; height: 128px; } .small { width: 32px; height: 32px; margin: 2px auto; }
+  figcaption, output { font-size: 12px; } .scrub { width: 65%; vertical-align: middle; }
+  section { margin-top: 20px; padding-top: 10px; border-top: 1px solid #cbc5d3; }
+  .scene { width: 384px; height: 192px; max-width: 100%; }
+  .call-scene { width: 480px; height: auto; max-width: 100%; }
+  #sequence { width: 100%; margin: 10px 0; } footer { margin: 16px 0; color: #605968; }
+  @media (max-width: 1300px) { main { grid-template-columns: repeat(3, minmax(290px, 1fr)); } }
+  @media (max-width: 1000px) { main { grid-template-columns: repeat(2, minmax(290px, 1fr)); } }
+  @media (max-width: 650px) { main { grid-template-columns: 1fr; } }
 </style>
-<h1>Пенни — базовый образ</h1>
-<p>Настоящие кадры DeskRat, сетка 32×32. В каждой паре: влево и вправо, увеличение 4× и исходный размер 1×.</p>
-<label>FATS <select id="fat"><option value="0">0 — лето</option><option value="1" selected>1 — межсезонье</option><option value="2">2 — зима</option></select></label>
-<button id="pause">Пауза</button><button id="step">Следующий кадр</button>
-<label><input id="mask" type="checkbox"> Маска кликов и опора</label>
+<h1>Пенни — все анимации и взаимодействия</h1>
+<p>Исходные кадры приложения, 32×32: оба направления, 4× и 1×, светлый и тёмный фон. Это единое dev-превью для согласования этапа 3.</p>
+<div class="controls">
+  <label>FATS <select id="fat"><option value="0">0 — лето</option><option value="1" selected>1 — межсезонье</option><option value="2">2 — зима</option></select></label>
+  <label>Наряд <select id="outfit"><option value="">Без наряда</option><option value="hat">Новогодняя шапка</option><option value="pumpkin">Тыква</option></select></label>
+  <label>Показать <select id="group"><option value="all">Все</option><option value="review">Правки по замечаниям</option><option value="motion">Движение</option><option value="rest">Отдых и перенос</option><option value="reaction">Еда и реакции</option><option value="item">Предметы</option></select></label>
+  <button id="pause">Пауза</button><button id="step">Следующий кадр</button><button id="reset">С начала</button>
+  <label><input id="mask" type="checkbox"> Маски / опора / захват</label>
+  <a href="#transitions">Переходы ↓</a>
+</div>
+<section id="summon">
+  <h2>Пенни! Пенни! Пенни!</h2>
+  <p>Нажмите три раза: услышала → повернулась → узнала зов и подбежала. После третьего можно указать место мышью на сцене. Затем Пенни шесть секунд любопытно смотрит; клик по ней — поглаживание. Используется настоящий модуль поведения приложения.</p>
+  <button id="call-penny">Пенни!</button><button id="call-reset">Сбросить зов</button>
+  <label>Подбегает <select id="call-facing"><option value="1">→</option><option value="-1">←</option></select></label>
+  <p id="call-status" aria-live="polite"></p>
+  <div class="scenes">
+    <figure class="stage light"><canvas class="call-scene" width="120" height="48"></canvas><figcaption>Светлый фон · метка — место курсора</figcaption></figure>
+    <figure class="stage dark"><canvas class="call-scene" width="120" height="48"></canvas><figcaption>Тёмный фон · клик по Пенни гладит</figcaption></figure>
+  </div>
+</section>
 <main></main>
-<footer>Для согласования: силуэт и мордочка, размер и расположение двух пятен, уши, хвост, шаг и дыхание. Остальные позы — этап 3.</footer>
+<section id="transitions">
+  <h2>Последовательности переходов</h2>
+  <p>Проверка графики на общей линии опоры с привязками приложения. Перемещение условное; системные события и окна Windows здесь не запускаются.</p>
+  <label>Сценарий <select id="scenario"></select></label>
+  <label>Направление <select id="facing"><option value="1">→</option><option value="-1">←</option></select></label>
+  <button id="replay">С начала сценария</button>
+  <input id="sequence" type="range" min="0" value="0" step="1" aria-label="Покадровый просмотр переходов">
+  <p id="sequence-label"></p>
+  <div class="scenes">
+    <figure class="stage light"><canvas class="scene" width="96" height="48"></canvas><figcaption>Светлый фон · 4×</figcaption></figure>
+    <figure class="stage dark"><canvas class="scene" width="96" height="48"></canvas><figcaption>Тёмный фон · 4×</figcaption></figure>
+  </div>
+</section>
+<footer>Согласовать: узнаваемость Пенни во всех позах, движения, оба пятна, уши и хвост, аксессуары и переходы. Внешний вид ожидает ответа пользователя. Превью не входит в production-сборку.</footer>
 <script type="module">
-  import { ANIMS, SIZE, draw, flip, ground, hitMask } from '/src/lib/sprite.ts';
-  const views = [];
-  const labels = { stand: 'Стоит · stand', walk: 'Идёт · walk', sit: 'Сидит · sit', sleep: 'Спит · sleep' };
-  for (const [name, label] of Object.entries(labels)) {
+  import { ANIMS, MOUSE_ANIMS, PUDDLE_FRAMES, SIZE, draw, dress, flip, ground, hitMask, bedMask, bedFrame, bowlFrame, SCRUFF_AT } from '/src/lib/sprite.ts';
+  const $ = (id) => document.getElementById(id);
+  import { ENABLED as mouseChaseEnabled } from '/src/lib/mouse.ts';
+  import * as summon from '/src/lib/summon.ts';
+  import { spawn } from '/src/lib/roam.ts';
+  const views = [], cards = [];
+  const motion = ['alert', 'stand', 'walk', 'jump', 'run', 'crouch', 'skid', 'bonk', 'fall', 'strut'];
+  const rest = ['sit', 'loaf', 'sideLoaf', 'sleep', 'bed', 'carried', 'faceplant', 'sidePlant', 'zzz'];
+  const names = { alert: 'Услышала зов', curious: 'Любопытная мордочка', stand: 'Стоит', walk: 'Шагает', jump: 'Прыгает', run: 'Бежит', crouch: 'Припадает', skid: 'Занос', bonk: 'Столкновение', fall: 'Падает', sit: 'Сидит / смотрит', loaf: 'Отдыхает', sideLoaf: 'Лежит', sleep: 'Спит на рамке', bed: 'Спит в лежаке', carried: 'Перенос', faceplant: 'Спит носом в лапках', sidePlant: 'Дремлет на полу', hungry: 'Просит еду', eat: 'Ест', groom: 'Умывается', petted: 'Поглаживание', groggy: 'Пробуждение', angry: 'Сердится', squat: 'Приседает', smug: 'Довольна', strut: 'Уходит довольная', lick: 'Облизывается', pose: 'Снимок экрана', crunch: 'Очистка корзины', cake: 'Праздник', zzz: 'Спит за экраном' };
+  const items = {
+    ...(mouseChaseEnabled ? { mouseRun: { label: 'Мышь · бег', ...MOUSE_ANIMS.run }, mouseSit: { label: 'Мышь · сидит', ...MOUSE_ANIMS.sit } } : {}),
+    yarn: { label: 'Клубок', ...MOUSE_ANIMS.yarn }, bowl: { label: 'Миска · 0 / 1 / 2 / 4 порции', ms: 800, frames: [0, 1, 2, 4].map(bowlFrame) },
+    bedItem: { label: 'Лежак · окно предмета', ms: 1500, frames: [bedFrame()] }, puddle: { label: 'Лужа · все стадии', ms: 700, frames: PUDDLE_FRAMES },
+  };
+  const animation = (name) => items[name] ?? ANIMS[Number($('fat').value)][name];
+  function pause() { paused = true; $('pause').textContent = 'Продолжить'; }
+  for (const name of [...Object.keys(ANIMS[0]), ...Object.keys(items)]) {
+    const item = items[name], group = item ? 'item' : motion.includes(name) ? 'motion' : rest.includes(name) ? 'rest' : 'reaction';
     const article = document.createElement('article');
-    article.innerHTML = `<h2>${label}</h2>`;
+    article.dataset.name = name; article.dataset.group = group;
+    if (name === 'crunch') article.title = 'Реакция на очистку корзины Windows: Пенни грызёт лакомство в передних лапках.';
+    const a = animation(name);
+    article.innerHTML = `<h2>${item?.label ?? names[name]} · ${name}</h2><div><input class="scrub" type="range" min="0" max="${a.frames.length - 1}" value="0" aria-label="Кадр ${name}"> <output></output></div>`;
+    const slider = article.querySelector('input'), output = article.querySelector('output');
+    const card = { article, name, slider, output, manual: null };
+    slider.oninput = () => { pause(); card.manual = Number(slider.value); render(); };
+    cards.push(card);
     for (const theme of ['light', 'dark']) {
-      const stage = document.createElement('div');
-      stage.className = `stage ${theme}`;
-      const pair = document.createElement('div');
-      pair.className = 'pair';
+      const stage = document.createElement('div'); stage.className = `stage ${theme}`;
+      const pair = document.createElement('div'); pair.className = 'pair';
       for (const facing of [-1, 1]) {
         const figure = document.createElement('figure');
         for (const scale of ['large', 'small']) {
-          const canvas = document.createElement('canvas');
-          canvas.width = canvas.height = SIZE;
-          canvas.className = scale;
-          figure.append(canvas);
-          views.push({ canvas, name, facing });
+          const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE; canvas.className = scale;
+          figure.append(canvas); views.push({ canvas, card, facing });
         }
-        const caption = document.createElement('figcaption');
-        caption.textContent = facing === -1 ? '← 4× / 1×' : '→ 4× / 1×';
-        figure.append(caption);
-        pair.append(figure);
+        const caption = document.createElement('figcaption'); caption.textContent = facing === -1 ? '← 4× / 1×' : '→ 4× / 1×';
+        figure.append(caption); pair.append(figure);
       }
-      stage.append(pair);
-      article.append(stage);
+      stage.append(pair); article.append(stage);
     }
     document.querySelector('main').append(article);
   }
-  let elapsed = 0, last = performance.now(), paused = false, offset = 0;
-  const fat = document.querySelector('#fat');
-  const mask = document.querySelector('#mask');
-  function render() {
-    for (const { canvas, name, facing } of views) {
-      const anim = ANIMS[Number(fat.value)][name];
-      const source = anim.frames[(Math.floor(elapsed / anim.ms) + offset) % anim.frames.length];
-      const frame = facing === -1 ? flip(source) : source;
-      const ctx = canvas.getContext('2d');
-      draw(ctx, frame);
-      if (mask.checked) {
-        const rows = hitMask(frame);
-        ctx.fillStyle = '#32c6bd88';
-        rows.forEach((bits, y) => { for (let x = 0; x < SIZE; x++) if ((bits >>> x) & 1) ctx.fillRect(x, y, 1, 1); });
-        ctx.fillStyle = '#ff9933aa';
-        ctx.fillRect(0, ground(name), SIZE, 1);
-      }
+  const scenarios = {
+    surfaces: { label: 'Поверхности · шаг → прыжок → приземление', names: ['stand', 'walk', 'jump', 'stand', 'walk', 'sit'] },
+    laser: { label: 'Лазер · бег → засада → прыжок → занос → столкновение', names: ['run', 'crouch', 'jump', 'run', 'skid', 'run', 'bonk', 'stand'] },
+    yarn: { label: 'Клубок · ходьба → прицеливание → бег', names: ['walk', 'crouch', 'stand', 'run'], toy: 'yarn' },
+    meal: { label: 'Миска · ожидание → еда → умывание', names: ['hungry', 'eat', 'lick', 'groom', 'sit'] },
+    bed: { label: 'Лежак · сон → пробуждение', names: ['bed', 'groggy', 'sit'], bed: true },
+    carry: { label: 'Перенос → падение → приземление → поглаживание', names: ['sit', 'carried', 'fall', 'stand', 'petted', 'sit'] },
+    wake: { label: 'Сон на рамке → пробуждение → злость → уход', names: ['sleep', 'groggy', 'angry', 'walk', 'zzz'] },
+    floorSleep: { label: 'Отдых → сон на полу → пробуждение', names: ['sideLoaf', 'sidePlant', 'groggy', 'loaf', 'faceplant', 'sit'] },
+    events: { label: 'Снимок экрана / корзина / праздник', names: ['sit', 'pose', 'sit', 'crunch', 'lick', 'cake', 'sit'] },
+    revenge: { label: 'Приседание → довольна → уходит', names: ['crouch', 'squat', 'smug', 'strut', 'stand'], puddle: true },
+  };
+  for (const [key, s] of Object.entries(scenarios)) $('scenario').add(new Option(s.label, key));
+  let elapsed = 0, sceneTime = 0, last = performance.now(), paused = false, offset = 0;
+  const scratch = document.createElement('canvas'); scratch.width = scratch.height = SIZE;
+  const callWorld = { monitors: [{ rect: { left: 0, top: 0, right: 480, bottom: 192 }, work: { left: 0, top: 0, right: 480, bottom: 168 }, scale: 1, primary: true }], ledges: [] };
+  let calling = null, callPet, callPoint, callClock = 0, callPettingUntil = 0;
+  function resetCall() {
+    const right = $('call-facing').value === '1';
+    callPet = { ...spawn(callWorld), x: right ? 96 : 384, facing: right ? -1 : 1 };
+    callPoint = { x: right ? 384 : 96, y: 128 };
+    calling = null; callPettingUntil = 0;
+  }
+  resetCall();
+  function updateCall(dt) {
+    callClock += dt;
+    if (calling) [calling, callPet] = summon.tick(calling, callWorld, callPet, callPoint, callClock, dt);
+  }
+  function callFrame() {
+    const name = callClock < callPettingUntil ? 'petted' : calling ? summon.pose(calling, callPet) : 'stand';
+    const a = animation(name), frame = a.frames[Math.floor((callClock - (calling?.since ?? 0)) / a.ms) % a.frames.length];
+    return { name, frame: decorate(frame, name, callPet.facing) };
+  }
+  function renderCall() {
+    const labels = { listen: '1/3 · услышала, приподняла голову', turn: '2/3 · повернулась на зов', notice: '3/3 · узнала зов', approach: '3/3 · подбегает', curious: 'Прибежала · любопытно смотрит, можно погладить' };
+    $('call-status').textContent = callClock < callPettingUntil ? 'Поглаживание · виляет хвостиком' : calling ? labels[calling.phase] : 'Нажмите «Пенни!» три раза';
+    $('call-penny').disabled = calling?.count === 3;
+    const { name, frame } = callFrame();
+    for (const canvas of document.querySelectorAll('.call-scene')) {
+      const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 120, 48);
+      ctx.fillStyle = '#93889b'; ctx.fillRect(0, 43, 120, 1);
+      ctx.fillStyle = '#d65e91'; const px = Math.round(callPoint.x / 4), py = Math.min(41, Math.round(callPoint.y / 4));
+      ctx.fillRect(px - 2, py, 5, 1); ctx.fillRect(px, py - 2, 1, 5);
+      draw(scratch.getContext('2d'), frame);
+      ctx.drawImage(scratch, Math.round(callPet.x / 4 - 16), Math.round(callPet.y / 4 - ground(name)));
     }
   }
-  document.querySelector('#pause').onclick = (event) => {
-    paused = !paused;
-    event.target.textContent = paused ? 'Продолжить' : 'Пауза';
+  $('call-penny').onclick = () => {
+    calling = summon.call(calling, callClock); callPet = summon.halt(callPet); callPettingUntil = 0;
+    paused = false; $('pause').textContent = 'Пауза'; render();
   };
-  document.querySelector('#step').onclick = () => {
-    paused = true;
-    document.querySelector('#pause').textContent = 'Продолжить';
-    offset++;
-    render();
-  };
-  function tick(now) {
-    if (!paused) elapsed += Math.max(0, now - last);
-    last = now;
-    render();
-    requestAnimationFrame(tick);
+  $('call-reset').onclick = () => { resetCall(); render(); };
+  $('call-facing').onchange = () => { resetCall(); render(); };
+  for (const canvas of document.querySelectorAll('.call-scene')) {
+    canvas.onpointermove = (event) => {
+      if (!calling || calling.count !== 3 || calling.phase === 'curious') return;
+      const r = canvas.getBoundingClientRect();
+      callPoint = { x: (event.clientX - r.left) / r.width * 480, y: (event.clientY - r.top) / r.height * 192 };
+    };
+    canvas.onclick = (event) => {
+      if (calling?.phase !== 'curious') return;
+      const r = canvas.getBoundingClientRect(), { name, frame } = callFrame();
+      const x = Math.floor((event.clientX - r.left) / r.width * 120 - Math.round(callPet.x / 4 - 16));
+      const y = Math.floor((event.clientY - r.top) / r.height * 48 - Math.round(callPet.y / 4 - ground(name)));
+      if (x < 0 || x >= 32 || y < 0 || y >= 32 || !((hitMask(frame)[y] >>> x) & 1)) return;
+      calling = null; callPet = summon.halt(callPet); callPettingUntil = callClock + 1500; render();
+    };
   }
-  render();
-  requestAnimationFrame(tick);
+  function decorate(frame, name, facing) {
+    const f = name in items ? frame : dress(frame, $('outfit').value || null);
+    return facing === -1 && name !== 'zzz' ? flip(f) : f;
+  }
+  function paint(canvas, frame, name, isItem) {
+    const ctx = canvas.getContext('2d'); draw(ctx, frame);
+    if (!$('mask').checked) return;
+    const rows = name === 'bedItem' ? bedMask(frame) : ['mouseRun', 'mouseSit', 'yarn', 'puddle'].includes(name) ? Array(SIZE).fill(0) : hitMask(frame);
+    ctx.fillStyle = '#32c6bd88';
+    rows.forEach((bits, y) => { for (let x = 0; x < SIZE; x++) if ((bits >>> x) & 1) ctx.fillRect(x, y, 1, 1); });
+    if (!isItem) { ctx.fillStyle = '#ff9933aa'; ctx.fillRect(0, ground(name), SIZE, 1); }
+    if (name === 'carried') { ctx.fillStyle = '#ff3939'; ctx.fillRect(SCRUFF_AT[0] - 1, 0, 2, 1); }
+  }
+  function timeline() {
+    return scenarios[$('scenario').value].names.flatMap((name) => animation(name).frames.map((frame, i) => ({ name, frame, i, ms: animation(name).ms })));
+  }
+  function scene() {
+    const s = scenarios[$('scenario').value], frames = timeline(), total = frames.reduce((sum, f) => sum + f.ms, 0);
+    let t = sceneTime % total, at = 0;
+    while (t >= frames[at].ms && at < frames.length - 1) t -= frames[at++].ms;
+    const { name, frame, i } = frames[at], facing = Number($('facing').value);
+    $('sequence').max = frames.length - 1; $('sequence').value = at;
+    $('sequence-label').textContent = `${name} · кадр ${i + 1}/${animation(name).frames.length} · переход ${at + 1}/${frames.length} · ${s.names.join(' → ')}`;
+    // Рамка и пол имеют одну опору. App тоже компенсирует ground(sleep)=27.
+    for (const canvas of document.querySelectorAll('.scene')) {
+      const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 96, 48);
+      ctx.fillStyle = '#93889b'; ctx.fillRect(0, 43, 96, 1);
+      const stamp = (f, x, y) => { draw(scratch.getContext('2d'), f); ctx.drawImage(scratch, x, y); };
+      let x = 32, y = 42 - ground(name);
+      const u = (i + t / frames[at].ms) / animation(name).frames.length;
+      if (name === 'jump') y -= Math.round(6 * Math.sin(Math.PI * u));
+      if (name === 'carried') y -= 6;
+      if (name === 'fall') y -= Math.round(6 * (1 - u));
+      if (s.bed) stamp(bedFrame(), 32, 11);
+      if (s.toy) stamp(decorate(animation(s.toy).frames[at % animation(s.toy).frames.length], s.toy, facing), facing === 1 ? 57 : 7, 11);
+      if (s.puddle && ['squat', 'smug', 'strut', 'stand'].includes(name)) stamp(PUDDLE_FRAMES[2], 32, 11);
+      if ($('scenario').value === 'meal') {
+        // Каноническая миска после flip — справа; eat смещает окно на 11 клеток к ней.
+        const right = facing === -1;
+        stamp(right ? bowlFrame(name === 'eat' ? 2 : 0) : flip(bowlFrame(name === 'eat' ? 2 : 0)), 32, 11);
+        if (name === 'eat') x += right ? 11 : -11;
+      }
+      stamp(decorate(frame, name, facing), x, y);
+      if ($('mask').checked && name === 'carried') { ctx.fillStyle = '#ff3939'; ctx.fillRect(x + 15, y, 2, 1); }
+    }
+  }
+  function render() {
+    for (const card of cards) {
+      const a = animation(card.name), index = card.manual ?? (Math.floor(elapsed / a.ms) + offset) % a.frames.length;
+      card.index = index; card.slider.value = index; card.output.textContent = `${index + 1}/${a.frames.length} · ${a.ms} мс`;
+      card.article.hidden = $('group').value === 'review' ? !['alert', 'curious', 'petted', 'smug', 'strut', 'crunch', 'cake'].includes(card.name) : $('group').value !== 'all' && card.article.dataset.group !== $('group').value;
+    }
+    for (const { canvas, card, facing } of views) {
+      if (card.article.hidden) continue;
+      paint(canvas, decorate(animation(card.name).frames[card.index], card.name, facing), card.name, card.name in items);
+    }
+    scene();
+    renderCall();
+  }
+  $('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Продолжить' : 'Пауза'; if (!paused) cards.forEach((c) => c.manual = null); };
+  $('step').onclick = () => { pause(); cards.forEach((c) => c.manual = (c.index + 1) % animation(c.name).frames.length); const f = timeline(); const n = (Number($('sequence').value) + 1) % f.length; sceneTime = f.slice(0, n).reduce((sum, x) => sum + x.ms, 0); render(); };
+  $('reset').onclick = () => { elapsed = sceneTime = offset = 0; cards.forEach((c) => c.manual = null); render(); };
+  $('replay').onclick = () => { sceneTime = 0; render(); };
+  $('scenario').onchange = () => { sceneTime = 0; render(); };
+  $('sequence').oninput = () => { pause(); sceneTime = timeline().slice(0, Number($('sequence').value)).reduce((sum, x) => sum + x.ms, 0); render(); };
+  for (const id of ['fat', 'outfit', 'group', 'mask', 'facing']) $(id).onchange = render;
+  function tick(now) { if (!paused) { const dt = Math.max(0, now - last); elapsed += dt; sceneTime += dt; updateCall(dt); } last = now; render(); requestAnimationFrame(tick); }
+  render(); requestAnimationFrame(tick);
 </script>
 </html>

@@ -2,6 +2,7 @@
   // Поля настроек — одни и те же в мастере первого запуска (по шагу на part) и в окне настроек.
   // Вид — из src/ui; здесь только раскладка.
   import { t } from './lib/i18n';
+  import { ENABLED as mouseChaseEnabled } from './lib/mouse';
   import { CHATTER, HUNTER_AREAS, MODES, NAME_MAX, TOPICS, suggestName, topicName, type Chatter, type HunterArea, type Mode, type Settings, type Topic } from './lib/settings';
   import { Button, Check, Group, Hint, Radio, TextInput } from './ui';
 
@@ -174,6 +175,7 @@
       {t('Прятать от записи экрана', 'Hide from screen capture')}
     </Check>
 
+    {#if mouseChaseEnabled}
     <Check
       bind:checked={settings.hunter}
       hint={t(
@@ -193,6 +195,7 @@
           </Radio>
         {/each}
       </div>
+    {/if}
     {/if}
 
     <Check

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMS, bedFrame, bedMask, BOWL_X, bowlFrame, bowlLeft, dress, fatOn, FATS, flip, ground, hitMask, onBowl, PALETTE, PUDDLE_FRAMES, PUDDLE_H, PUDDLE_W, SCRUFF_AT, SIZE } from './sprite';
+import { ANIMS, bedFrame, bedMask, BOWL_X, bowlFrame, bowlLeft, dress, fatOn, FATS, flip, ground, hitMask, MOUSE_ANIMS, onBowl, PALETTE, PUDDLE_FRAMES, PUDDLE_H, PUDDLE_W, SCRUFF_AT, SIZE } from './sprite';
 
 const all = FATS.flatMap((fat) =>
   Object.entries(ANIMS[fat]).flatMap(([name, a]) => a.frames.map((f, i) => [`${name}[${i}] жир ${fat}`, f] as const)),
@@ -7,6 +7,128 @@ const all = FATS.flatMap((fat) =>
 const width = (bits: number) => bits.toString(2).replaceAll('0', '').length;
 /** Сколько пикселей зверя в кадре. */
 const area = (f: string[]) => hitMask(f).reduce((n, row) => n + width(row), 0);
+
+describe('Пенни — все взаимодействия', () => {
+  it('в довольных реакциях хвост заметно виляет, корпус сидя остаётся на месте', () => {
+    for (const fat of FATS) {
+      for (const name of ['smug', 'petted', 'strut'] as const) {
+        const tails = ANIMS[fat][name].frames.map((f) => f.slice(21).map((row) => row.slice(0, name === 'strut' ? 10 : 12)).join(''));
+        expect(new Set(tails).size, name).toBeGreaterThanOrEqual(name === 'petted' ? 2 : 3);
+      }
+      const frames = ANIMS[fat].petted.frames;
+      expect(frames[0].slice(16).map((row) => row.slice(12))).toEqual(frames[1].slice(16).map((row) => row.slice(12)));
+    }
+  });
+
+  it('торт перед носом в обоих направлениях, а лакомство держат лапками и оно не кормит через onBowl', () => {
+    for (const fat of FATS) {
+      for (const f of ANIMS[fat].cake.frames) for (const facing of [1, -1]) {
+        const frame = facing === 1 ? f : flip(f);
+        const food = frame.flatMap((row) => [...row].flatMap((c, x) => c === 'c' || c === 'C' ? [x] : []));
+        expect(food.length).toBeGreaterThan(0);
+        expect(food.every((x) => facing === 1 ? x > 24 : x < 7)).toBe(true);
+      }
+      for (const frame of ANIMS[fat].crunch.frames) {
+        const snack = frame.flatMap((row, y) => [...row].flatMap((c, x) => c === 'j' || c === 'J' ? [[x, y]] : []));
+        expect(snack.length).toBeGreaterThanOrEqual(2);
+        for (const [x, y] of snack) {
+          expect(onBowl(frame, x, y)).toBe(false);
+          expect([-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => 'pP'.includes(frame[y + dy]?.[x + dx] ?? '.')))).toBe(true);
+        }
+        expect(frame.join('')).not.toMatch(/[cC]/);
+      }
+    }
+  });
+
+  it('сохраняет набор, число кадров и темп, от которых зависят App и поведения', () => {
+    const contract = {
+      alert: [2, 350], curious: [5, 450],
+      stand: [4, 500], walk: [4, 150], jump: [2, 200], run: [2, 90], crouch: [2, 220], skid: [2, 100], bonk: [2, 200], fall: [2, 150],
+      sit: [5, 600], loaf: [5, 1000], sideLoaf: [5, 1000], sleep: [2, 1500], bed: [2, 1500], carried: [4, 450], faceplant: [2, 1500], sidePlant: [2, 1500],
+      hungry: [5, 600], eat: [4, 300], groom: [6, 350], petted: [2, 400], groggy: [6, 700], angry: [4, 250], squat: [3, 500], smug: [4, 600],
+      strut: [4, 150], lick: [4, 180], pose: [4, 500], crunch: [4, 220], cake: [4, 450], zzz: [6, 1100],
+    };
+    for (const fat of FATS) expect(Object.fromEntries(Object.entries(ANIMS[fat]).map(([n, a]) => [n, [a.frames.length, a.ms]]))).toEqual(contract);
+  });
+
+  it('в каждой видимой позе белая шерсть, розовая кожа и отметины Пенни; старой кошачьей шерсти нет', () => {
+    for (const fat of FATS) for (const [name, anim] of Object.entries(ANIMS[fat])) {
+      if (name === 'zzz') continue;
+      for (const frame of anim.frames) {
+        const pixels = frame.join('');
+        expect(pixels, name).toContain('F');
+        expect(pixels, name).toContain('P');
+        expect(pixels, name).toContain('p');
+        expect(pixels, name).not.toMatch(/[fd]/);
+        // У еды отметина над носом частично закрыта миской/кормом, круп остаётся видимым.
+        expect([...pixels].filter((c) => c === 'D').length, name).toBeGreaterThanOrEqual(name === 'eat' ? 8 : 13);
+      }
+    }
+  });
+
+  it('наряды полностью помещаются во всех позах, не меняют исходник и зеркалятся вместе с маской', () => {
+    for (const fat of FATS) for (const [name, anim] of Object.entries(ANIMS[fat])) for (const frame of anim.frames) {
+      const before = [...frame];
+      for (const outfit of ['hat', 'pumpkin'] as const) {
+        const dressed = dress(frame, outfit);
+        if (name === 'zzz') { expect(dressed).toEqual(frame); continue; }
+        expect(dressed).toHaveLength(SIZE);
+        expect(dressed.every((row) => row.length === SIZE)).toBe(true);
+        expect(dressed.join('')).toContain(outfit === 'hat' ? 'H' : 'o');
+        const outfitKeys = outfit === 'hat' ? 'HI' : 'oOg';
+        const count = [...dressed.join('')].filter((c) => outfitKeys.includes(c)).length;
+        // Ни один цветной пиксель аксессуара не обрезан границей кадра.
+        expect(count, `${name} / ${outfit}`).toBe(outfit === 'hat' ? 15 : 14);
+        const mask = hitMask(dressed), mirrored = hitMask(flip(dressed));
+        expect(mirrored).toEqual(mask.map((bits) => parseInt(bits.toString(2).padStart(SIZE, '0').split('').reverse().join(''), 2)));
+        if (name === 'bed') expect(dressed.slice(27)).toEqual(frame.slice(27));
+        if (name === 'carried') expect(hitMask(dressed)[0] & (3 << 15)).toBe(3 << 15);
+      }
+      expect(frame).toEqual(before);
+    }
+  });
+
+  it('у подвижных поз непрерывный корпус, уши и хвост помещаются по горизонтали', () => {
+    for (const fat of FATS) for (const name of ['jump', 'run', 'crouch', 'skid', 'bonk', 'fall', 'angry', 'squat'] as const) for (const f of ANIMS[fat][name].frames) {
+      expect(f.every((row) => row[0] === '.' && row[31] === '.'), name).toBe(true);
+      expect(f[0]).toBe('.'.repeat(SIZE));
+      const dy = ['crouch', 'skid', 'bonk', 'squat'].includes(name) ? 1 : name === 'run' ? null : -1;
+      // Общая середина живота — без прозрачных просветов даже при смене фазы бега.
+      for (let y = 25 + (dy ?? 0); y <= 27 + (dy ?? 0); y++) for (let x = 16; x <= 19; x++) expect(f[y][x], `${name} (${x},${y})`).not.toBe('.');
+    }
+  });
+
+  it('при переносе загривок соединён с головой до точки захвата', () => {
+    for (const fat of FATS) for (const f of ANIMS[fat].carried.frames) for (let y = 0; y <= 14; y++) {
+      expect(f[y][15]).not.toBe('.'); expect(f[y][16]).not.toBe('.');
+    }
+  });
+
+  it('стыки деталей не оставляют замкнутых прозрачных дыр внутри силуэта', () => {
+    for (const fat of FATS) for (const [name, anim] of Object.entries(ANIMS[fat])) {
+      if (name === 'cake') continue; // просвет в исходном тортике не относится к телу
+      for (const f of anim.frames) {
+        const seen = new Set<string>(), queue: number[][] = [];
+        for (let n = 0; n < SIZE; n++) queue.push([n, 0], [n, 31], [0, n], [31, n]);
+        while (queue.length) {
+          const [x, y] = queue.pop()!, key = `${x},${y}`;
+          if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || seen.has(key) || f[y][x] !== '.') continue;
+          seen.add(key);
+          for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (dx || dy) queue.push([x + dx, y + dy]);
+        }
+        const holes = f.flatMap((row, y) => [...row].flatMap((c, x) => c === '.' && !seen.has(`${x},${y}`) ? [`${x},${y}`] : []));
+        expect(holes, `${name} / FATS ${fat}`).toEqual([]);
+      }
+    }
+  });
+
+  it('предметы и игровые кадры сохраняют сетку и палитру', () => {
+    for (const frame of [...Object.values(MOUSE_ANIMS).flatMap((a) => a.frames), bedFrame(), ...[0, 1, 2, 4].map(bowlFrame), ...PUDDLE_FRAMES]) {
+      expect(frame).toHaveLength(SIZE);
+      for (const row of frame) { expect(row).toHaveLength(SIZE); expect([...row].every((c) => c === '.' || c in PALETTE)).toBe(true); }
+    }
+  });
+});
 
 describe('Пенни — базовые позы', () => {
   const basic = FATS.flatMap((fat) => (['stand', 'walk', 'sit', 'sleep'] as const).flatMap((name) =>

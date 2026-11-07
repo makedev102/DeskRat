@@ -1,4 +1,4 @@
-// Персонаж 32×32. Базовые позы — Пенни; остальные пока upstream.
+// Персонаж 32×32. Все позы — Пенни.
 // Кадры собираются из общих головы, тела, лап и хвоста.
 // Все позы смотрят вправо; влево — `flip`.
 
@@ -11,7 +11,7 @@ export type Frame = string[];
 type Part = string[];
 
 export const PALETTE: Record<string, string> = {
-  // Цвета Пенни отдельно от старых поз и предметов.
+  // Шерсть и кожа Пенни; ниже — цвета глаз, предметов и эффектов.
   v: '#77717b', // мягкий контур белой шерсти
   F: '#faf7f2', // белая шерсть
   L: '#dedbdc', // тень шерсти, не пятно
@@ -31,6 +31,8 @@ export const PALETTE: Record<string, string> = {
   b: '#5b8fd9', // миска
   c: '#c98d4b', // корм
   C: '#8a5a2b', // корм потемнее
+  j: '#c98d4b', // лакомство в лапках: не относится к кликам по миске
+  J: '#8a5a2b',
   R: '#5a3a2e', // контур лежака
   r: '#b5654a', // лежак
   q: '#f0dcb8', // подушка в лежаке
@@ -59,95 +61,6 @@ const DECOR = new Set(['h', 'z', 's']);
 /** Перед лежака в кадре спящей кошки: клик по нему уходит окну лежака под ней — за него лежак и таскают. */
 const THROUGH = new Set([...DECOR, 'R', 'r', 'q']);
 
-// Голова анфас, 12×10: кошка идёт боком, но смотрит на человека.
-const HEAD_TOP: Part = [
-  '.k........k.',
-  'kpk......kpk',
-  'kppkkkkkkppk',
-  'kfffdffdfffk',
-  'kffffffffffk',
-];
-const HEAD_BOTTOM: Part = [
-  'klfffppffflk',
-  '.kllllllllk.',
-  '..kkkkkkkk..',
-];
-const EYES_OPEN: Part = ['kfwkffffwkfk', 'kfkkffffkkfk'];
-const EYES_SHUT: Part = ['kffffffffffk', 'kfkkffffkkfk'];
-const EYES_HAPPY: Part = ['kffkffffkffk', 'kfkfkffkfkfk'];
-// Не доспала: веки тяжёлые, глаза полуприкрыты.
-const EYES_SLEEPY: Part = ['kfddffffddfk', 'kfkkffffkkfk'];
-// Злая: косые щёлки, внутренние концы ниже — «\ /».
-const EYES_ANGRY: Part = ['kfkffffffkfk', 'kffkkffkkffk'];
-
-// Мяу: рот открыт, видно язык.
-const HEAD_MEOW: Part = ['klfffppffflk', '.kllkppkllk.', '..kkkkkkkk..'];
-// Шипит: пасть шире, видны клыки.
-const HEAD_HISS: Part = ['klffkppkfflk', '.klkwppwklk.', '..kkkkkkkk..'];
-
-// Уши прижаты к голове и смотрят в стороны.
-const HEAD_FLAT: Part = [
-  '............',
-  'kkk......kkk',
-  'kppkkkkkkppk',
-  'kfffdffdfffk',
-  'kffffffffffk',
-];
-
-const head = (eyes: Part, bottom = HEAD_BOTTOM, top = HEAD_TOP): Part => [...top, ...eyes, ...bottom];
-
-// Туловище сбоку, 18×8, полоски на спине.
-const BODY: Part = [
-  '..kkkkkkkkkkkkkk..',
-  '.kffdffdffdfffffk.',
-  'kfffdffdffdffffffk',
-  'kffffffffffffffffk',
-  'kffffffffffffffffk',
-  'kffffffffflllllffk',
-  '.kfffffflllllllfk.',
-  '..kkkkkkkkkkkkkk..',
-];
-
-/**
- * Вдох: середина спины приподнимается на пиксель, края и низ на месте.
- * Целый лишний ряд дёргал всё туловище и отвлекал от работы.
- */
-function inhale(body: Part): Part {
-  const top = body[0];
-  const from = top.indexOf('k') + 4;
-  const to = top.lastIndexOf('k') - 4;
-  const bump = [...top].map((_, x) => (x >= from && x <= to ? 'k' : '.')).join('');
-  const lifted = [...top].map((c, x) => (x >= from && x <= to ? 'f' : c)).join('');
-  return [bump, lifted, ...body.slice(1)];
-}
-
-/** Лапа сбоку, 4 в ширину: начинается на нижнем контуре туловища, `len` рядов, носочек светлый. */
-const leg = (len: number): Part => [...Array<string>(len - 2).fill('kffk'), 'kllk', 'kkkk'];
-
-// Хвост трубой, 6×9; основание уходит под туловище.
-const TAIL_UP: Part = [
-  '.kk...',
-  'kddk..',
-  'kfk...',
-  'kfk...',
-  'kfk...',
-  'kffk..',
-  '.kffk.',
-  '..kffk',
-  '...kfk',
-];
-const TAIL_SWAY: Part = [
-  '..kk..',
-  '.kddk.',
-  '.kfk..',
-  'kfk...',
-  'kfk...',
-  'kffk..',
-  '.kffk.',
-  '..kffk',
-  '...kfk',
-];
-
 /** Сезонный жирок: 0 — лето, 2 — зима. */
 export type Fat = 0 | 1 | 2;
 export const FATS: Fat[] = [0, 1, 2];
@@ -158,54 +71,6 @@ export function fatOn(date: Date): Fat {
   if (m === 11 || m <= 1) return 2;
   return m === 10 || m === 2 ? 1 : 0;
 }
-
-/** Туловище сбоку на `fat` рядов глубже: живот провисает вниз, лапы от этого короче. */
-const sideBody = (fat: Fat): Part => [...BODY.slice(0, 6), ...Array<string>(fat).fill(BODY[5]), ...BODY.slice(6)];
-
-/** Полуширина каждого ряда туловища анфас, сверху вниз; последний ряд — нижний контур. */
-const SIT_HALF = [3, 3, 4, 4, 5, 6, 6, 6, 6, 6];
-const LOAF_HALF = [4, 5, 5, 6, 6, 6, 6];
-
-/**
- * Туловище анфас по центру x 16: узко под головой, ниже бёдра. Жирок раздаёт бока
- * на пиксель за уровень, кроме самых верхних рядов — шея не толстеет.
- * `legs`: прямые передние лапы — светлый столбик в контуре от грудки до пола, носочки
- * разделены только в нижнем ряду; 'right' — левая (для зрителя) поднята к морде, стоит одна правая.
- * Без лап грудка сплошная, лапки рисуются поверх (`PAWS`).
- */
-function frontBody(fat: Fat, halves: number[], legs: boolean | 'right'): Part {
-  const half = halves.map((h, y) => h + Math.min(fat, y >> 1));
-  const widest = Math.max(...half);
-  const last = half.length - 1;
-  return half.map((h, y) => {
-    let row = '.'.repeat(widest - h);
-    for (let x = -h; x < h; x++) {
-      const edge = x === -h || x === h - 1;
-      const chest = y >= 4 ? 2 : 1;
-      if (y === last) row += edge ? '.' : 'k';
-      else if (edge) row += 'k';
-      else if (legs === 'right' && y >= last - 4) row += x === 0 || x === 3 ? 'k' : x > 0 && x < 3 ? 'l' : 'f';
-      else if (legs && y === last - 1) row += x === -3 || x === 0 || x === 3 ? 'k' : x > -3 && x < 3 ? 'l' : 'f';
-      else if (legs && y >= last - 4) row += x === -3 || x === 2 ? 'k' : x > -3 && x < 2 ? 'l' : 'f';
-      else if (x >= -chest && x < chest) row += 'l';
-      else row += 'f';
-    }
-    return row + '.'.repeat(widest - h);
-  });
-}
-
-// Лапки буханки анфас, 10×4: два светлых овала из-под грудки, нижний ряд ложится на контур туловища.
-const PAWS: Part = ['.kkk..kkk.', 'klllkklllk', 'klllkklllk', 'kkkkkkkkkk'];
-
-// Хвост, обёрнутый вокруг лап.
-const SIT_TAIL: Part = ['......kk', '.....kdk', 'kk...kfk', 'kfkkkffk', '.kffffk.', '..kkkk..'];
-
-// Во сне хвост свисает с рамки окна.
-const SLEEP_TAIL: Part = ['.kfk', '.kfk', '.kfk', '.kdk', '.kdk', '..k.'];
-const SLEEP_TAIL_SWAY: Part = ['.kfk', '.kfk', 'kfk.', 'kdk.', 'kdk.', '.k..'];
-
-// Лёжа хвост обёрнут вдоль бока по полу, кончиком вперёд.
-const FLOOR_TAIL: Part = ['............', '.kkkkkkkkkk.', 'kffffffdddk.', '.kkkkkkkkkk.'];
 
 // Миска 10×5 и горка корма над ней.
 const BOWL: Part = ['BBBBBBBBBB', 'BbbbbbbbbB', 'BbbbbbbbbB', '.BbbbbbbB.', '..BBBBBB..'];
@@ -233,8 +98,6 @@ const Z_SMALL: Part = ['zzzz', '..z.', '.z..', 'zzzz'];
 
 // Тортик на тарелке, 7×8: свечка, вишенка, крем, корж.
 const CAKE: Part = ['...s...', '...k...', '.kkkkk.', '.klhlk.', '.kcccck', '.kcCck.', 'kwwwwwk', '.kkkkk.'];
-// Лапа, вытянутая вбок к тарелке.
-const PAW_SIDE: Part = ['.kkk', 'klfk', '.kkk'];
 const Z_BIG: Part = ['zzzzz', '...z.', '..z..', '.z...', 'zzzzz'];
 
 /** Штампует детали по порядку: следующая рисуется поверх предыдущей. */
@@ -251,261 +114,9 @@ function compose(...parts: [Part, number, number][]): Frame {
   return g.map((r) => r.join(''));
 }
 
-// Стоит и идёт: туловище x 4–21, низ на y 26 (+жир), голова справа сверху, лапы до земли (y 31).
-// Лапы парами с общим контуром: задние x 5–11, передние x 14–20.
-const BACK = [5, 8];
-const FRONT = [14, 17];
-// Голова над передними лапами, на шее: левый край заходит на загривок, морда чуть впереди груди.
-const HEAD_AT: [number, number] = [16, 13];
-
-/** `step[i]` — сдвиг i-й лапы (задние, потом передние) по x и подняв ли её. */
-function standing(fat: Fat, eyes: Part, tail: Part, step: [number, boolean][] = []): Frame {
-  const legs = [...BACK, ...FRONT].map((x, i): [Part, number, number] => {
-    const [dx, up] = step[i] ?? [0, false];
-    return [leg((up ? 5 : 6) - fat), x + dx, 26 + fat];
-  });
-  return compose([tail, 0, 12], [sideBody(fat), 4, 19], ...legs, [head(eyes), ...HEAD_AT]);
-}
-
-/**
- * Лапа в прыжке, наискось: на ряд ниже — на пиксель дальше. `dir` 1 — вперёд (передние тянутся
- * к цели), -1 — назад (задние только что оттолкнулись). Ставится по верхнему ряду: x — там же, где стоя.
- */
-function slantLeg(len: number, dir: 1 | -1): [Part, number] {
-  const rows = leg(len).map((r, i) => {
-    const shift = dir === 1 ? i : len - 1 - i;
-    return '.'.repeat(shift) + r + '.'.repeat(len - 1 - shift);
-  });
-  return [rows, dir === 1 ? 0 : len - 1];
-}
-
-// Хвост в прыжке вытянут назад рулём; кончик то прямо, то вверх.
-const TAIL_BACK: Part = ['.kkkk.', 'kdffffk', '.kkkk.'];
-const TAIL_BACK_FLICK: Part = ['kk....', 'kdkkk.', '.kdfffk', '..kkkk.'];
-
-/** Прыжок: туловище как стоя, задние лапы вытянуты назад, передние — к цели, хвост рулём. */
-function leaping(fat: Fat, tail: Part): Frame {
-  const len = 6 - fat;
-  const legs = [...BACK, ...FRONT].map((x, i): [Part, number, number] => {
-    const [part, back] = slantLeg(len, i < 2 ? -1 : 1);
-    return [part, x - back, 26 + fat];
-  });
-  return compose([tail, 0, 19], [sideBody(fat), 4, 19], ...legs, [head(EYES_OPEN), ...HEAD_AT]);
-}
-
-/** Падает: лапы висят прямо, уши прижаты, хвост трубой — «ой». */
-function falling(fat: Fat, tail: Part, spread: boolean): Frame {
-  const legs = [...BACK, ...FRONT].map((x, i): [Part, number, number] => [leg(6 - fat), x + (spread ? (i < 2 ? -1 : 1) : 0), 26 + fat]);
-  return compose([tail, 0, 12], [sideBody(fat), 4, 19], ...legs, [head(EYES_OPEN, HEAD_MEOW, HEAD_FLAT), ...HEAD_AT]);
-}
-
-// Шаг на 32 пикселях: лапы то расставлены, то сведены, и поднята то одна диагональ, то другая.
-// Сдвинуть лапы навстречу друг другу нельзя — четыре пикселя с контуром слипаются в пятно.
 const SPREAD: [number, boolean][] = [[-1, false], [1, false], [-1, false], [1, false]];
 const LIFT_A: [number, boolean][] = [[0, true], [0, false], [0, false], [0, true]];
 const LIFT_B: [number, boolean][] = [[0, false], [0, true], [0, true], [0, false]];
-
-/** Сидит анфас посередине: голова y 12–21, туловище y 22–31, хвост выглядывает справа. */
-function sitting(fat: Fat, eyes: Part, tail: Part, extra: [Part, number, number][] = []): Frame {
-  const body = frontBody(fat, SIT_HALF, true);
-  const half = body[0].length / 2;
-  return compose([tail, 13 + half, 26], [body, 16 - half, 22], [head(eyes), 10, 12], ...extra);
-}
-
-/** Разбудили, не доспала: сидит, клюёт носом (`nod` — голова ниже на пиксель) и зевает. */
-function groggy(fat: Fat, eyes: Part, nod: boolean, mouth = HEAD_BOTTOM): Frame {
-  const body = frontBody(fat, SIT_HALF, true);
-  const half = body[0].length / 2;
-  return compose([SIT_TAIL, 13 + half, 26], [body, 16 - half, 22], [head(eyes, mouth), 10, nod ? 13 : 12]);
-}
-
-// Злая сбоку: спина дугой, по столбцам x 3–21 — верх (y) и нижний контур живота.
-const ARCH_TOP = [20, 18, 16, 15, 14, 13, 13, 12, 12, 12, 12, 13, 13, 14, 15, 16, 17, 18, 19];
-const ARCH_BOTTOM = [23, 24, 24, 24, 24, 24, 24, 24, 23, 22, 22, 23, 24, 24, 24, 24, 24, 24, 23];
-
-/**
- * Туловище дугой: шерсть дыбом — через столбец торчит на пиксель выше, `bristle` меняет
- * чётность, и шерсть дрожит. Жирок провисает живот под серединой дуги.
- */
-function archBody(fat: Fat, bristle: boolean): Part {
-  const top = ARCH_TOP.map((t, x) => (x > 1 && x < ARCH_TOP.length - 2 && x % 2 === Number(bristle) ? t - 1 : t));
-  const bottom = ARCH_BOTTOM.map((b, x) => (x >= 7 && x <= 12 ? b + Math.min(fat, 24 - b) : b));
-  const inside = (x: number, y: number) => x >= 0 && x < top.length && y >= top[x] && y <= bottom[x];
-  // ряды сразу в координатах кадра: пустые сверху compose пропустит
-  return Array.from({ length: Math.max(...bottom) + 1 }, (_, y) => {
-    return top
-      .map((_, x) => {
-        if (!inside(x, y)) return '.';
-        if (!inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1)) return 'k';
-        if ((x === 6 || x === 9 || x === 12) && y <= top[x] + 2) return 'd';
-        return 'f';
-      })
-      .join('');
-  });
-}
-
-// Хвост ёршиком: распушён вдвое против обычного.
-const TAIL_PUFF: Part = ['.kkk..', 'kdddk.', 'kfffk.', 'kdfdk.', 'kfffk.', 'kfffk.', '.kfffk', '..kffk', '...kfk'];
-const TAIL_PUFF_SWAY: Part = ['..kkk.', '.kdddk', 'kfffk.', 'kdfdk.', 'kfffk.', 'kfffk.', '.kfffk', '..kffk', '...kfk'];
-
-/** Разбудили второй раз: выгнула спину, стоит на прямых лапах, голова опущена, шипит. */
-function angry(fat: Fat, bristle: boolean, mouth: Part, tail: Part): Frame {
-  const body = archBody(fat, bristle);
-  const legs = [4, 7, 15, 18].map((x): [Part, number, number] => [leg(8), x, 24]);
-  return compose([tail, 0, 11], [body, 3, 0], ...legs, [head(EYES_ANGRY, mouth, HEAD_FLAT), 17, 14]);
-}
-
-/** Обиделась и спит за краем экрана: самой не видно, только «з-з-з» всплывает снизу и тает. */
-const behindEdge = (z: Part, x: number, y: number): Frame => compose([z, x, y]);
-
-// Умывание: левая лапа поднята к морде — у рта, чтобы лизнуть, или у глаза, чтобы потереть.
-// Светлая подушечка сверху, ниже предплечье до груди (y 23), иначе лапа висит в воздухе.
-const raisedPaw = (y: number): Part => ['.kk.', 'kllk', 'kllk', ...Array<string>(23 - y - 2).fill('kffk')];
-const TONGUE: Part = ['pp'];
-
-// Облизывается после погони: язык ходит по губам от одного уголка рта к другому.
-const LICK_LEFT: [Part, number, number][] = [[['p'], 13, 20], [['p'], 14, 21]];
-const LICK_RIGHT: [Part, number, number][] = [[['p'], 18, 20], [['p'], 17, 21]];
-
-function grooming(fat: Fat, eyes: Part, pawY: number, tongue: boolean): Frame {
-  const body = frontBody(fat, SIT_HALF, 'right');
-  const half = body[0].length / 2;
-  const extra: [Part, number, number][] = tongue ? [[TONGUE, 15, 21]] : [];
-  return compose(
-    [SIT_TAIL, 13 + half, 26],
-    [body, 16 - half, 22],
-    [head(eyes), 10, 12],
-    ...extra,
-    [raisedPaw(pawY), 12, pawY],
-  );
-}
-
-/** Буханка анфас: ниже, чем сидя, лапки подобраны под грудку. */
-function frontLoaf(fat: Fat, eyes: Part): Frame {
-  const body = frontBody(fat, LOAF_HALF, false);
-  const half = body[0].length / 2;
-  const y = SIZE - body.length;
-  return compose([SIT_TAIL, 13 + half, 26], [body, 16 - half, y], [PAWS, 11, 28], [head(eyes), 10, y - 10]);
-}
-
-/** Спит калачиком; нижний контур туловища (y 27) лежит на рамке окна, жирок растёт вверх. */
-function sleeping(body: Part, tail: Part, z: [Part, number, number]): Frame {
-  const y = 28 - body.length;
-  return compose([tail, 3, 26], [body, 5, y], [head(EYES_SHUT), 17, 17], z);
-}
-
-/** Буханка сбоку: лежит на земле, лапы спрятаны под себя, хвост вдоль бока, голова поднята. */
-function sideLoaf(body: Part, eyes: Part, tail: Part): Frame {
-  const y = SIZE - body.length;
-  return compose([body, 5, y], [tail, 3, SIZE - 4], [head(eyes), 17, y - 5]);
-}
-
-/** Верх спины лицом в пол сбоку, по столбцам: спина ровная и низкая, у головы скатывается к полу. */
-const PLANT_TOP = [3, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 4, 5, 6, 7, 8];
-
-/**
- * Туловище лицом в пол сбоку: контур — всё, что граничит с пустотой, сзади поджатая светлая лапка.
- * На вдохе приподнимается середина спины. Жирок добавляет рядов снизу — кошка выше.
- */
-function plantBody(fat: Fat, breath: boolean): Part {
-  const top = PLANT_TOP.map((t, x) => (breath && x >= 5 && x <= 10 ? t - 1 : t));
-  const h = 9 + fat;
-  // нижний задний угол срезан — круп круглый, а не кирпичом
-  const inside = (x: number, y: number) => x >= 0 && x < top.length && y >= top[x] && y < h && !(x === 0 && y === h - 1);
-  return Array.from({ length: h }, (_, y) =>
-    top
-      .map((_, x) => {
-        if (!inside(x, y)) return '.';
-        if (!inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1)) return 'k';
-        if (y >= h - 3 && x <= 4) return 'l';
-        if ((x === 5 || x === 8 || x === 11) && y <= top[x] + 2) return 'd';
-        return 'f';
-      })
-      .join(''),
-  );
-}
-
-/** Спит, уткнувшись головой в пол, сбоку: из пола торчат только уши и лоб, хвост вдоль бока. */
-function sidePlant(fat: Fat, breath: boolean, tail: Part, z: [Part, number, number]): Frame {
-  const body = plantBody(fat, breath);
-  const y = SIZE - body.length;
-  return compose([body, 2, y], [tail, 0, SIZE - 4], [[...HEAD_TOP, 'kkkkkkkkkkkk'], 18, SIZE - 6], z);
-}
-
-/** Круглая спина анфас, когда голова опущена: по бокам светлые задние лапки. */
-function dome(fat: Fat): Part {
-  const half = [3, 5, 6, 7, 7, 8, 8, 8, 8, 8, 8, 8].map((h, y) => h + (y >= 2 ? fat : 0));
-  const widest = Math.max(...half);
-  const last = half.length - 1;
-  return half.map((h, y) => {
-    let row = '.'.repeat(widest - h);
-    for (let x = -h; x < h; x++) {
-      const edge = x === -h || x === h - 1;
-      if (y === last) row += edge ? '.' : 'k';
-      else if (edge || y === 0) row += 'k';
-      else if (y >= last - 2 && (x === -h + 1 || x === -h + 2 || x === h - 2 || x === h - 3)) row += 'l';
-      else if (y >= 1 && y <= 3 && (x === -2 || x === 1)) row += 'd';
-      else row += 'f';
-    }
-    return row + '.'.repeat(widest - h);
-  });
-}
-
-/**
- * Спит, уткнувшись головой в пол, анфас: круглая спина закрывает почти всю голову,
- * снизу торчат только уши и лоб — остальное в полу. Хвост над спиной.
- */
-function faceplant(fat: Fat, tail: Part, z: [Part, number, number]): Frame {
-  const back = dome(fat);
-  const y0 = SIZE - back.length;
-  const half = back[0].length / 2;
-  return compose([tail, 17, y0 - 6], [back, 16 - half, y0], [[...HEAD_TOP, 'kkkkkkkkkkkk'], 10, SIZE - 6], z);
-}
-
-/** Просит есть: сидит рядом с пустой миской и смотрит на человека. */
-function hungry(fat: Fat, eyes: Part, mouth: Part, tail: Part): Frame {
-  const body = frontBody(fat, SIT_HALF, true);
-  const half = body[0].length / 2;
-  return compose([tail, 13 + half, 26], [body, 16 - half, 22], [head(eyes, mouth), 10, 12], [BOWL, 0, SIZE - 5]);
-}
-
-/** Ест: спина горбом, голова опущена в миску, над краем видны уши и лоб; `headY` — кивок жуя. */
-function eating(fat: Fat, headY: number, tail: Part): Frame {
-  const back = dome(fat);
-  const y0 = SIZE - back.length;
-  const half = back[0].length / 2;
-  return compose(
-    [tail, 17, y0 - 6],
-    [back, 16 - half, y0],
-    [head(EYES_SHUT), 10, headY],
-    [KIBBLE, 11, SIZE - 7],
-    [BOWL, 11, SIZE - 5],
-  );
-}
-
-/** Галоп, сбор: лапы подобраны под себя, кошка на миг над землёй; голова клюёт вниз. */
-function gathered(fat: Fat): Frame {
-  const legs = [6, 9, 13, 16].map((x): [Part, number, number] => [leg(5 - fat), x, 26 + fat]);
-  return compose([TAIL_BACK, 0, 19], [sideBody(fat), 4, 19], ...legs, [head(EYES_OPEN), 16, 14]);
-}
-
-/**
- * Засада на лазер: туловище прижато к земле на два ряда ниже, голова вытянута вперёд и вниз,
- * хвост низко и неподвижно. `wiggle` — задние лапы переступают: зад «ёрзает» перед прыжком.
- */
-function crouching(fat: Fat, wiggle: boolean): Frame {
-  const legs = [...BACK, ...FRONT].map((x, i): [Part, number, number] => [leg(4 - fat), x - (wiggle && i < 2 ? 1 : 0), 28 + fat]);
-  return compose([TAIL_BACK, 0, 22], [sideBody(fat), 4, 21], ...legs, [head(EYES_OPEN), 17, 15]);
-}
-
-/**
- * Месть: присела, как в засаде, только хвост торчком и неподвижен — поза сидя, хвост в ней
- * не дёргается. Уши прижаты; кадры отличаются глазами: зло щурится, потом жмурится от усердия.
- */
-function squatting(fat: Fat, eyes: Part): Frame {
-  const legs = [...BACK, ...FRONT].map((x): [Part, number, number] => [leg(4 - fat), x, 28 + fat]);
-  return compose([TAIL_UP, 0, 14], [sideBody(fat), 4, 21], ...legs, [head(eyes, HEAD_BOTTOM, HEAD_FLAT), 17, 15]);
-}
 
 const STAR: Part = ['.s.', 'sss', '.s.'];
 
@@ -513,71 +124,8 @@ const STAR: Part = ['.s.', 'sss', '.s.'];
 const DUST_SMALL: Part = ['.u.', 'uuu'];
 const DUST_BIG: Part = ['..u..', '.uuu.', 'uuuuu'];
 
-/**
- * Занос на развороте: туловище осело на ряд, передние лапы упёрты вперёд наискось, голова
- * откинута назад, уши прижаты, хвост рулём; перед лапами клубится пыль.
- */
-function skidding(fat: Fat, big: boolean): Frame {
-  const len = 5 - fat;
-  const legs = [...BACK, ...FRONT].map((x, i): [Part, number, number] =>
-    i < 2 ? [leg(len), x, 27 + fat] : [slantLeg(len, 1)[0], x, 27 + fat],
-  );
-  const toe = FRONT[1] + len + 3;
-  return compose(
-    [TAIL_BACK, 0, 20],
-    [sideBody(fat), 4, 20],
-    ...legs,
-    [head(EYES_OPEN, HEAD_BOTTOM, HEAD_FLAT), HEAD_AT[0] - 1, HEAD_AT[1] + 1],
-    big ? [DUST_BIG, toe, SIZE - 3] : [DUST_SMALL, toe + 1, SIZE - 2],
-  );
-}
-
-/** Врезалась в край окна: отпрянула на пиксель, уши прижаты, глаза зажмурены, хвост ёршиком, над головой звёздочки. */
-function bonked(fat: Fat, stars: [number, number][]): Frame {
-  const legs = [...BACK, ...FRONT].map((x): [Part, number, number] => [leg(6 - fat), x, 26 + fat]);
-  return compose(
-    [TAIL_PUFF, 0, 12],
-    [sideBody(fat), 4, 19],
-    ...legs,
-    [head(EYES_SHUT, HEAD_MEOW, HEAD_FLAT), 15, 14],
-    ...stars.map(([x, y]): [Part, number, number] => [STAR, x, y]),
-  );
-}
-
-// На весу за шкирку анфас: кожа на загривке оттянута, лапы и хвост висят.
-const SCRUFF: Part = ['.kk.', 'kffk', 'kffk'];
-const HANG_HALF = [3, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4];
-// Передние лапы висят вдоль боков: наружный контур лапы — контур туловища.
-const HANG_FRONT: Part = ['kfk', 'kfk', 'kfk', 'kfk', 'kfk', 'klk', 'klk', '.k.'];
-const HANG_BACK: Part = ['kffk', 'kffk', 'kffk', 'kllk', '.kk.'];
-// Хвост висит прямо и не дёргается.
-const HANG_TAIL: Part = ['kffk', 'kddk', 'kffk', 'kffk', 'kddk', 'kffk', 'kffk', 'kddk', 'kffk', '.kk.'];
-
-/**
- * Загривок в кадре `carried`, в клетках: за эту точку кошка висит на курсоре — середина кадра
- * по x (между клетками 15 и 16) и середина верхнего ряда. Кадр симметричен, flip её не сдвигает.
- */
+/** Точка переноса остаётся в центре верхнего ряда, независимо от направления. */
 export const SCRUFF_AT: [number, number] = [16, 0.5];
-
-/** Несут за шкирку: голова сверху, туловище вытянуто, задние лапы (`sway` — разведены на пиксель) и хвост висят. */
-function carried(fat: Fat, eyes: Part, sway: boolean): Frame {
-  const body = frontBody(fat, HANG_HALF, false);
-  const half = body[0].length / 2;
-  const d = sway ? 1 : 0;
-  return compose(
-    [HANG_TAIL, 14, 22],
-    [HANG_BACK, 11 - d, 22],
-    [HANG_BACK, 17 + d, 22],
-    [body, 16 - half, 9],
-    [HANG_FRONT, 16 - half, 12],
-    [HANG_FRONT, 16 + half - 3, 12],
-    [SCRUFF, 14, 0],
-    [head(eyes), 10, 1],
-  );
-}
-
-/** Спит в лежаке: калачик на пиксель ниже — в подушке, — снизу закрыт передним бортиком. */
-const inBed = (f: Frame): Frame => compose([['.'.repeat(SIZE), ...f.slice(0, SIZE - 1)], 0, 0], [BED_FRONT, 1, SIZE - BED_FRONT.length]);
 
 export interface Anim {
   frames: Frame[];
@@ -641,7 +189,7 @@ function pennyBody(fat: Fat): Part {
   ];
 }
 
-function pennyStanding(fat: Fat, shut: boolean, sway: boolean, step: [number, boolean][] = []): Frame {
+function pennyStanding(fat: Fat, shut: boolean, sway: boolean, step: [number, boolean][] = [], lift = 0): Frame {
   const head = pennyHead(shut);
   head[3] = 'F' + head[3].slice(1); // внутренняя кромка шеи сливается с плечом
   const body = PENNY_REFERENCE.map((row, y) => [...pennyFur(row.slice(3))].map((c, x) => {
@@ -661,7 +209,7 @@ function pennyStanding(fat: Fat, shut: boolean, sway: boolean, step: [number, bo
     [['v', 'F', 'F', 'F', 'F'], 20, 21], // диагональная ступенька от спины к уху
     [PENNY_PATCH, 10, 24],
     ...legs,
-    [head, 20, 19],
+    [head, 20, 19 - lift],
   );
 }
 
@@ -683,16 +231,16 @@ const PENNY_SIT_REFERENCE: Part = [
 ];
 const PENNY_SIT_EAR: Part = ['.PP.', 'PppP', 'PppP', '.PP.'];
 
-function pennySitting(fat: Fat, shut: boolean, sway: boolean): Frame {
+function pennySitting(fat: Fat, shut: boolean, sway: boolean, lean = false): Frame {
   // Непосредственная сетка верхней левой крыски со стикерного референса.
   // Голова и плечи здесь принадлежат самой сидячей позе, без растяжения шеи.
   const body = PENNY_SIT_REFERENCE.map((row, y) => {
     const start = row.search(/[FL]/);
     return y >= 4 && start >= 0 ? row.slice(0, start) + 'F'.repeat(fat) + row.slice(start) : row;
   });
-  const g = body.map((row) => [...row.padEnd(14, '.')]);
-  for (const [x, y] of [[7, 0], [8, 0], [8, 1], [9, 1], [8, 2]]) g[y][x] = 'D';
-  g[1][7] = shut ? 'L' : 'k';
+  const g = body.map((row, y) => [...((lean && y < 4 ? '.' : '') + row).padEnd(14, '.')]);
+  for (const [x, y] of [[7, 0], [8, 0], [8, 1], [9, 1], [8, 2]]) g[y][x + Number(lean)] = 'D';
+  g[1][7 + Number(lean)] = shut ? 'L' : 'k';
   // Однопиксельная кромка снаружи шерсти; хвост и розовые лапы без обводки.
   const outline = Array.from({ length: 15 }, () => Array<string>(16).fill('.'));
   g.forEach((row, y) => row.forEach((c, x) => {
@@ -703,7 +251,7 @@ function pennySitting(fat: Fat, shut: boolean, sway: boolean): Frame {
     }
   }));
   return compose(pennyFloorTail(13, 30, sway), [outline.map((row) => row.join('')), 12, 17],
-    [g.map((row) => row.join('')), 13, 18], [PENNY_PATCH, 14, 28], [PENNY_SIT_EAR, 15, 16]);
+    [g.map((row) => row.join('')), 13, 18], [PENNY_PATCH, 14, 28], [PENNY_SIT_EAR, 15 + Number(lean), 16]);
 }
 
 function pennySleeping(fat: Fat, breath: boolean): Frame {
@@ -725,247 +273,230 @@ function pennySleeping(fat: Fat, breath: boolean): Frame {
   );
 }
 
-function build(fat: Fat) {
-  const body = sideBody(fat);
-  const bedSleep: Anim = {
-    ms: 1500,
-    frames: [
-      sleeping(body, SLEEP_TAIL, [Z_SMALL, 25, 11]),
-      sleeping(inhale(body), SLEEP_TAIL_SWAY, [Z_BIG, 26, 6]),
-    ],
-  };
-  return {
-    stand: {
-      ms: 500,
-      frames: [
-        pennyStanding(fat, false, false),
-        pennyStanding(fat, false, true),
-        pennyStanding(fat, false, false),
-        pennyStanding(fat, true, false),
-      ],
-    },
-    walk: {
-      ms: 150,
-      frames: [
-        pennyStanding(fat, false, false, SPREAD),
-        pennyStanding(fat, false, true, LIFT_A),
-        pennyStanding(fat, false, false, SPREAD),
-        pennyStanding(fat, false, true, LIFT_B),
-      ],
-    },
-    jump: {
-      ms: 200,
-      frames: [leaping(fat, TAIL_BACK), leaping(fat, TAIL_BACK_FLICK)],
-    },
-    // охота за лазером: галоп вдвое чаще шага, засада, «бум» об край окна
-    run: {
-      ms: 90,
-      frames: [leaping(fat, TAIL_BACK), gathered(fat)],
-    },
-    crouch: {
-      ms: 220,
-      frames: [crouching(fat, false), crouching(fat, true)],
-    },
-    // занос: держится, пока едет по инерции (SKID_MS), пыль клубится
-    skid: {
-      ms: 100,
-      frames: [skidding(fat, false), skidding(fat, true)],
-    },
-    bonk: {
-      ms: 200,
-      frames: [
-        bonked(fat, [[26, 9], [29, 12]]),
-        bonked(fat, [[28, 8], [24, 11]]),
-      ],
-    },
-    fall: {
-      ms: 150,
-      frames: [falling(fat, TAIL_UP, false), falling(fat, TAIL_SWAY, true)],
-    },
-    sit: {
-      ms: 600,
-      frames: [
-        pennySitting(fat, false, false),
-        pennySitting(fat, false, true),
-        pennySitting(fat, false, false),
-        pennySitting(fat, false, false),
-        pennySitting(fat, true, false),
-      ],
-    },
-    loaf: {
-      ms: 1000,
-      frames: [
-        frontLoaf(fat, EYES_OPEN),
-        frontLoaf(fat, EYES_OPEN),
-        frontLoaf(fat, EYES_OPEN),
-        frontLoaf(fat, EYES_OPEN),
-        frontLoaf(fat, EYES_SHUT),
-      ],
-    },
-    sideLoaf: {
-      ms: 1000,
-      frames: [
-        sideLoaf(body, EYES_OPEN, FLOOR_TAIL),
-        sideLoaf(body, EYES_OPEN, FLOOR_TAIL),
-        sideLoaf(body, EYES_OPEN, FLOOR_TAIL),
-        sideLoaf(body, EYES_OPEN, FLOOR_TAIL),
-        sideLoaf(body, EYES_SHUT, FLOOR_TAIL),
-      ],
-    },
-    sleep: { ms: 1500, frames: [pennySleeping(fat, false), pennySleeping(fat, true)] },
-    // Лежак и остальные позы переводятся на образ Пенни на этапе 3.
-    bed: { ms: bedSleep.ms, frames: bedSleep.frames.map(inBed) },
-    carried: {
-      ms: 450,
-      frames: [
-        carried(fat, EYES_OPEN, false),
-        carried(fat, EYES_OPEN, true),
-        carried(fat, EYES_OPEN, false),
-        carried(fat, EYES_SHUT, false),
-      ],
-    },
-    faceplant: {
-      ms: 1500,
-      frames: [
-        faceplant(fat, TAIL_UP, [Z_SMALL, 25, 9]),
-        faceplant(fat, TAIL_SWAY, [Z_BIG, 26, 4]),
-      ],
-    },
-    sidePlant: {
-      ms: 1500,
-      frames: [
-        sidePlant(fat, false, FLOOR_TAIL, [Z_SMALL, 27, 16]),
-        sidePlant(fat, true, FLOOR_TAIL, [Z_BIG, 27, 11]),
-      ],
-    },
-    hungry: {
-      ms: 600,
-      frames: [
-        hungry(fat, EYES_OPEN, HEAD_BOTTOM, SIT_TAIL),
-        hungry(fat, EYES_OPEN, HEAD_BOTTOM, SIT_TAIL),
-        hungry(fat, EYES_OPEN, HEAD_MEOW, SIT_TAIL),
-        hungry(fat, EYES_OPEN, HEAD_BOTTOM, SIT_TAIL),
-        hungry(fat, EYES_SHUT, HEAD_BOTTOM, SIT_TAIL),
-      ],
-    },
-    eat: {
-      ms: 300,
-      frames: [eating(fat, 20, TAIL_UP), eating(fat, 21, TAIL_UP), eating(fat, 20, TAIL_SWAY), eating(fat, 21, TAIL_SWAY)],
-    },
-    groom: {
-      ms: 350,
-      frames: [
-        grooming(fat, EYES_SHUT, 18, true),
-        grooming(fat, EYES_SHUT, 19, false),
-        grooming(fat, EYES_SHUT, 18, true),
-        grooming(fat, EYES_SHUT, 14, false),
-        grooming(fat, EYES_SHUT, 16, false),
-        grooming(fat, EYES_SHUT, 14, false),
-      ],
-    },
-    petted: {
-      ms: 400,
-      frames: [
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[HEART, 13, 5]]),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[HEART, 13, 4]]),
-      ],
-    },
-    groggy: {
-      ms: 700,
-      frames: [
-        groggy(fat, EYES_SLEEPY, false),
-        groggy(fat, EYES_SHUT, true),
-        groggy(fat, EYES_SHUT, true),
-        groggy(fat, EYES_SLEEPY, false),
-        groggy(fat, EYES_SHUT, false, HEAD_MEOW),
-        groggy(fat, EYES_SLEEPY, false),
-      ],
-    },
-    angry: {
-      ms: 250,
-      frames: [
-        angry(fat, false, HEAD_HISS, TAIL_PUFF),
-        angry(fat, true, HEAD_HISS, TAIL_PUFF_SWAY),
-        angry(fat, false, HEAD_HISS, TAIL_PUFF),
-        angry(fat, true, HEAD_BOTTOM, TAIL_PUFF_SWAY),
-      ],
-    },
-    // месть (revenge.ts): присела над лужей, потом сидит довольная и уходит вразвалку, жмурясь
-    squat: {
-      ms: 500,
-      frames: [squatting(fat, EYES_ANGRY), squatting(fat, EYES_ANGRY), squatting(fat, EYES_SHUT)],
-    },
-    smug: {
-      ms: 600,
-      frames: [
-        sitting(fat, EYES_HAPPY, SIT_TAIL),
-        sitting(fat, EYES_HAPPY, SIT_TAIL),
-        sitting(fat, EYES_HAPPY, SIT_TAIL),
-        sitting(fat, EYES_SHUT, SIT_TAIL),
-      ],
-    },
-    strut: {
-      ms: 150,
-      frames: [
-        standing(fat, EYES_HAPPY, TAIL_UP, SPREAD),
-        standing(fat, EYES_HAPPY, TAIL_SWAY, LIFT_A),
-        standing(fat, EYES_HAPPY, TAIL_UP, SPREAD),
-        standing(fat, EYES_HAPPY, TAIL_SWAY, LIFT_B),
-      ],
-    },
-    lick: {
-      ms: 180,
-      frames: [
-        sitting(fat, EYES_HAPPY, SIT_TAIL, LICK_LEFT),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[TONGUE, 15, 21]]),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, LICK_RIGHT),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[TONGUE, 15, 21]]),
-      ],
-    },
-    // снимают экран (PrintScreen, Win+Shift+S): сидит ровно, жмурится, «сы-ыр»; сбоку мигает вспышка
-    pose: {
-      ms: 500,
-      frames: [
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[HEAD_MEOW, 10, 19]]),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[HEAD_MEOW, 10, 19], [STAR, 3, 4], [STAR, 26, 6]]),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[HEAD_MEOW, 10, 19]]),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[HEAD_MEOW, 10, 19]]),
-      ],
-    },
-    // очистили корзину: хрумкает выброшенное, крошки сыплются с подбородка
-    crunch: {
-      ms: 220,
-      frames: [
-        sitting(fat, EYES_SHUT, SIT_TAIL, [[HEAD_MEOW, 10, 19], [['c'], 14, 23]]),
-        sitting(fat, EYES_SHUT, SIT_TAIL, [[['C'], 17, 24]]),
-        sitting(fat, EYES_SHUT, SIT_TAIL, [[HEAD_MEOW, 10, 19], [['c'], 18, 23]]),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[['c'], 14, 25]]),
-      ],
-    },
-    // праздник: сидит у тортика и, как положено кошке, спихивает тарелку лапой
-    cake: {
-      ms: 450,
-      frames: [
-        sitting(fat, EYES_OPEN, SIT_TAIL, [[CAKE, 1, 24]]),
-        sitting(fat, EYES_OPEN, SIT_TAIL, [[CAKE, 1, 24], [PAW_SIDE, 8, 28]]),
-        sitting(fat, EYES_SHUT, SIT_TAIL, [[CAKE, 0, 24], [PAW_SIDE, 7, 28]]),
-        sitting(fat, EYES_HAPPY, SIT_TAIL, [[CAKE, 0, 24]]),
-      ],
-    },
-    zzz: {
-      ms: 1100,
-      frames: [
-        behindEdge(Z_SMALL, 14, 27),
-        behindEdge(Z_SMALL, 15, 21),
-        behindEdge(Z_BIG, 16, 14),
-        compose(),
-        compose(),
-        compose(),
-      ],
-    },
-  } satisfies Record<string, Anim>;
+
+type SidePose = 'jump' | 'run' | 'crouch' | 'skid' | 'bonk' | 'fall' | 'angry' | 'squat';
+type Point = [number, number];
+
+/** Наклон вниз без нового рисунка мордочки — для сна носом в лапках. */
+const turnDown = (part: Part): Part => Array.from({ length: part[0].length }, (_, x) =>
+  part.map((row) => row[x]).reverse().join(''));
+
+/** Тонкая непрерывная линия: хвост и согнутые конечности не распадаются на точки. */
+function stroke(points: Point[], color: string): Frame {
+  const g = compose().map((row) => [...row]);
+  for (let i = 1; i < points.length; i++) {
+    const [x0, y0] = points[i - 1], [x1, y1] = points[i];
+    const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    for (let n = 0; n <= steps; n++) {
+      const t = steps ? n / steps : 0;
+      const x = Math.round(x0 + (x1 - x0) * t), y = Math.round(y0 + (y1 - y0) * t);
+      if (x >= 0 && x < SIZE && y >= 0 && y < SIZE) g[y][x] = color;
+    }
+  }
+  return g.map((row) => row.join(''));
 }
 
+/** Общая голова референса: меняются только веки и рот, не форма уха или морды. */
+function pennyExpression(shut: boolean, mouth: boolean, angry = false): Part {
+  const head = pennyHead(shut).map((row) => [...row]);
+  if (angry) head[3][4] = 'v';
+  if (mouth) { head[6][7] = 'P'; head[6][8] = 'p'; }
+  return head.map((row) => row.join(''));
+}
+
+/** Круп из принятой стоячей позы, без головы, хвоста и отдельных лап. */
+function pennyMovingBody(fat: Fat): Part {
+  const body = PENNY_REFERENCE.slice(2, 10).map((row) => pennyFur(row.slice(11, 26))
+    .replace(/[pP]/g, 'F'));
+  // Клетки за пределами крупа не становятся шерстью при отделении хвоста.
+  body[4] = 'F' + body[4].slice(1);
+  body[5] = '.' + body[5].slice(1);
+  body[6] = '..' + body[6].slice(2);
+  body[7] = '...' + body[7].slice(3);
+  body.splice(4, 0, ...Array<string>(fat).fill(body[3]));
+  return body;
+}
+
+/** Движение сохраняет габариты, голову и круп stand; работают лапы и тонкий хвост. */
+function pennyMoving(fat: Fat, pose: SidePose, phase: boolean, shut = false): Frame {
+  const low = pose === 'crouch' || pose === 'skid' || pose === 'bonk' || pose === 'squat';
+  const airborne = pose === 'jump' || pose === 'fall' || (pose === 'run' && !phase);
+  const dy = low ? 1 : airborne || pose === 'angry' ? -1 : 0;
+  const hx = pose === 'bonk' || pose === 'skid' ? 19 : 20;
+  const hy = 19 + (pose === 'fall' ? 0 : dy);
+  let back: Point = [13, 31], front: Point = [23, 31];
+  if (pose === 'jump' || (pose === 'run' && !phase)) { back = [11, phase ? 29 : 30]; front = [26, phase ? 30 : 29]; }
+  if (pose === 'run' && phase) { back = [16, 30]; front = [21, 30]; }
+  if (pose === 'crouch') back = [phase ? 12 : 13, 31];
+  if (pose === 'skid') front = [26, 31];
+  if (pose === 'fall') { back = [phase ? 11 : 13, 31]; front = [phase ? 25 : 23, 31]; }
+  if (pose === 'angry') front = [25, phase ? 28 : 29];
+  const limb = (joint: Point, toe: Point): [Part, number, number][] => [
+    [stroke([joint, [toe[0], toe[1] - 1]], 'L'), 0, 0],
+    [PENNY_PAW, toe[0] - 1, toe[1] - 1],
+  ];
+  const tailY = 26 + dy;
+  const tipY = pose === 'squat' ? 24 : airborne ? 28 + Number(phase) : 31;
+  return compose(
+    [stroke([[11, tailY], [9, tailY + 1], [6, Math.min(30, tailY + 2)], [3, tipY], [2, tipY]], 'P'), 0, 0],
+    [stroke([[10, tailY + 1], [7, Math.min(30, tailY + 2)], [3, tipY], [2, tipY]], 'p'), 0, 0],
+    [pennyMovingBody(fat), 9, 21 - fat + dy],
+    [['v', 'F', 'F', 'F', 'F'], hx, 21 + dy],
+    [PENNY_PATCH, 10, 24 + dy],
+    ...limb([14, 27 + dy], back), ...limb([23, 27 + dy], front),
+    [pennyExpression(shut || pose === 'bonk', pose === 'fall' || pose === 'angry', pose === 'angry'), hx, hy],
+    ...(pose === 'bonk' ? [[STAR, phase ? 25 : 27, 9], [STAR, phase ? 28 : 24, 13]] as [Part, number, number][] : []),
+    ...(pose === 'skid' ? [[phase ? DUST_BIG : DUST_SMALL, 26, phase ? 28 : 29]] as [Part, number, number][] : []),
+  );
+}
+
+/** Виляет тонким хвостиком; место крепления и принятый корпус остаются неподвижными. */
+function pennyWag(frame: Frame, root: Point, phase: number): Frame {
+  const [rx, ry] = root;
+  const offset = [0, -2, 0, 2][phase % 4];
+  const clean = frame.map((row, y) => [...row].map((c, x) =>
+    x < rx && y >= ry - 3 && (c === 'p' || c === 'P') ? '.' : c).join(''));
+  const points: Point[] = [root, [rx - 2, ry], [rx - 5, Math.min(31, ry - 1 + offset / 2)], [rx - 8, ry - 2 + offset], [2, ry - 2 + offset]];
+  return compose([stroke(points, 'P'), 0, 0], [stroke(points.slice(1), 'p'), 0, 0], [clean, 0, 0]);
+}
+
+/** Спокойные сидячие реакции сохраняют принятую сетку sit, включая обе отметины. */
+function pennySeated(fat: Fat, phase: boolean, action: 'petted' | 'groggy' | 'smug' | 'lick' | 'pose' | 'crunch' | 'cake' | 'groom' | 'hungry', index = 0): Frame {
+  const shut = ['petted', 'smug', 'lick', 'groom', 'crunch'].includes(action) || (action === 'groggy' && index > 0 && index < 5) || (action === 'hungry' && index === 4);
+  let frame = pennySitting(fat, shut, phase);
+  if (action === 'smug' || action === 'petted') frame = pennyWag(frame, [12, 30], action === 'petted' ? index * 2 + 1 : index);
+  const extras: [Part, number, number][] = [];
+  if (action === 'petted') extras.push([HEART, 13, phase ? 4 : 5]);
+  if (action === 'pose') {
+    extras.push([['Pp'], 23, 21]);
+    if (index === 1) extras.push([STAR, 3, 4], [STAR, 26, 6]);
+  }
+  if (action === 'groggy' && index === 4) extras.push([['Pp', '.P'], 23, 21]);
+  if (action === 'lick') extras.push([['p'], index === 0 ? 24 : 23, index === 2 ? 20 : 21]);
+  if (action === 'crunch') {
+    // Держит у мордочки, а не роняет отдельный пиксель в воздухе.
+    extras.push([stroke([[21, 26], [23, 24]], 'L'), 0, 0], [PENNY_PAW, 23, 23], [['P'], 23, 22],
+      [['jJ', index === 1 || index === 2 ? '..' : 'Jj'], 24, 22], [['Pp'], 23, 21]);
+  }
+  if (action === 'groom') {
+    // От груди к носу или уху: лапка остаётся соединённой с плечом.
+    const at: Point = index < 3 ? [24, 21 + Number(phase)] : [18, 18 + Number(phase)];
+    extras.push([stroke([[21, 26], [22, 24], at], 'L'), 0, 0], [PENNY_PAW, at[0] - 1, at[1]]);
+    if (index < 3 && !phase) extras.push([['p'], 24, 21]);
+  }
+  if (action === 'hungry') {
+    // Пенни приподнимает переднюю лапку, прося еду; без кошачьего открытого рта.
+    if (index === 2) extras.push([stroke([[21, 26], [23, 24]], 'L'), 0, 0], [PENNY_PAW, 22, 23]);
+    extras.push([BOWL, 0, SIZE - BOWL.length]);
+  }
+  if (action === 'cake') {
+    // Тянется к угощению той же передней лапкой, не меняя посадку.
+    if (index === 1 || index === 2) extras.push([stroke([[21, 26], [24, 27]], 'L'), 0, 0], [PENNY_PAW, 23, 26 + Number(phase)]);
+    extras.push([CAKE, 24, 24]);
+  }
+  frame = compose([frame, 0, 0], ...extras);
+  return frame;
+}
+
+/** Отдых на полу: та же спина и мордочка sleep, опора на y31 вместо y27. */
+function pennyRest(fat: Fat, phase: boolean, pose: 'loaf' | 'sideLoaf' | 'faceplant' | 'sidePlant'): Frame {
+  const tucked = pose === 'faceplant' || pose === 'sidePlant';
+  const body = pennyBody(fat);
+  body[body.length - 1] = '.vvvvvvvvvvvvvv..';
+  if (phase && tucked) { body.unshift('......vvv........'); body[1] = '.....vFFFv.......'; }
+  const head = pennyHead(tucked || phase);
+  const frame = compose(
+    pennyFloorTail(10, 29, phase), [body, 9, 32 - body.length], [PENNY_PATCH, 11, 27],
+    [PENNY_PAW, 22, 30],
+    // При опущенной мордочке шея закрыта корпусом и лапками, не обрезана краем кадра.
+    [pose === 'faceplant' ? turnDown(head) : tucked ? head.slice(0, 8) : head, 20, pose === 'faceplant' ? 21 : tucked ? 24 : pose === 'loaf' ? 21 : 22],
+    ...(tucked ? [[phase ? Z_BIG : Z_SMALL, 26, phase ? 10 : 15]] as [Part, number, number][] : []),
+  );
+  if (pose === 'faceplant') CROWNS.set(frame, [19, 21]);
+  return frame;
+}
+
+/** Голова наклонена к миске; ширина миски и сдвиг на 11 клеток — контракт App. */
+function pennyEating(fat: Fat, phase: boolean, blink: boolean): Frame {
+  // Круп справа от миски: укорочена только середина спины, голова того же размера.
+  const body = pennyBody(fat).map((row) => row.slice(0, 8) + row.slice(11));
+  body[body.length - 1] = '.vvvvvvvvvvv..';
+  const frame = compose(
+    [stroke([[29, 27], [30, 29], [29, 30], [27, 31], [blink ? 23 : 24, 31]], 'P'), 0, 0],
+    [body, 17, 32 - body.length], [PENNY_PATCH, 27, 26],
+    [PENNY_PAW, 23, 30],
+    [flip(pennyHead(true).slice(0, 8)), 11, phase ? 22 : 21],
+    [KIBBLE, 11, SIZE - 7], [BOWL, 11, SIZE - 5],
+  );
+  CROWNS.set(frame, [11, phase ? 23 : 22]);
+  return frame;
+}
+
+/** Единственный необходимый анфас — перенос; силуэт симметричен вокруг точки захвата. */
+function pennyCarried(fat: Fat, shut: boolean, sway: boolean): Frame {
+  const body = Array.from({ length: 13 }, (_, y) => {
+    const half = (y < 2 ? 4 : y > 10 ? 4 : 5) + (y >= 2 ? fat : 0);
+    return '.'.repeat(8 - half) + 'v' + (y > 9 ? 'L' : 'F').repeat(half * 2 - 2) + 'v' + '.'.repeat(8 - half);
+  });
+  const face: Part = [
+    '...vvvvvv...', '..vFFFFFFv..', '.vFFFDDFFFv.', 'vFFFDDDDFFFv',
+    shut ? 'vFFLFFFFLFFv' : 'vFFkFFFFkFFv', 'vFFFFFFFFFFv', '.vFFFppFFFv.', '..vvFFFFvv..', '....vvvv....',
+  ];
+  const frame = compose(
+    [stroke([[15, 24], [15, 31]], 'P'), 0, 0], [stroke([[16, 24], [16, 31]], 'P'), 0, 0],
+    [body, 8, 12], [['.vv.', 'vFFv', 'vFFv', 'vFFv', 'vFFv', 'vFFv'], 14, 0],
+    [PENNY_SIT_EAR, 9, 3], [PENNY_SIT_EAR, 19, 3], [face, 10, 5],
+    [PENNY_PAW, 10 - Number(sway), 25], [flip(compose([PENNY_PAW, 10 - Number(sway), 25])), 0, 0],
+    [['L', 'P', 'p'], 10 - fat, 17], [['L', 'P', 'p'], 21 + fat, 17],
+    [PENNY_PATCH, 14, 22],
+  );
+  CROWNS.set(frame, [10, 6]);
+  return frame;
+}
+
+/** Привязка анфаса при переносе; остальные головы распознаются по общему уху. */
+const CROWNS = new WeakMap<Frame, Point>();
+
+/** Перед лежака закрывает нижнюю часть Пенни и пропускает клики в окно лежака. */
+const inBed = (frame: Frame): Frame => compose([frame.slice(0, 31), 0, 1], [BED_FRONT, 1, SIZE - BED_FRONT.length]);
+
+function build(fat: Fat) {
+  const repeat = (n: number, make: (index: number) => Frame) => Array.from({ length: n }, (_, i) => make(i));
+  return {
+    alert: { ms: 350, frames: [pennyStanding(fat, false, false, [], 1), pennyStanding(fat, false, true, [], 1)] },
+    curious: { ms: 450, frames: repeat(5, (i) => pennySitting(fat, i === 4, i === 1 || i === 3, i === 1 || i === 3)) },
+    stand: { ms: 500, frames: [pennyStanding(fat, false, false), pennyStanding(fat, false, true), pennyStanding(fat, false, false), pennyStanding(fat, true, false)] },
+    walk: { ms: 150, frames: [pennyStanding(fat, false, false, SPREAD), pennyStanding(fat, false, true, LIFT_A), pennyStanding(fat, false, false, SPREAD), pennyStanding(fat, false, true, LIFT_B)] },
+    jump: { ms: 200, frames: repeat(2, (i) => pennyMoving(fat, 'jump', !!i)) },
+    run: { ms: 90, frames: repeat(2, (i) => pennyMoving(fat, 'run', !!i)) },
+    crouch: { ms: 220, frames: repeat(2, (i) => pennyMoving(fat, 'crouch', !!i)) },
+    skid: { ms: 100, frames: repeat(2, (i) => pennyMoving(fat, 'skid', !!i)) },
+    bonk: { ms: 200, frames: repeat(2, (i) => pennyMoving(fat, 'bonk', !!i)) },
+    fall: { ms: 150, frames: repeat(2, (i) => pennyMoving(fat, 'fall', !!i)) },
+    sit: { ms: 600, frames: repeat(5, (i) => pennySitting(fat, i === 4, i === 1)) },
+    loaf: { ms: 1000, frames: repeat(5, (i) => pennyRest(fat, i === 4, 'loaf')) },
+    sideLoaf: { ms: 1000, frames: repeat(5, (i) => pennyRest(fat, i === 4, 'sideLoaf')) },
+    sleep: { ms: 1500, frames: repeat(2, (i) => pennySleeping(fat, !!i)) },
+    bed: { ms: 1500, frames: repeat(2, (i) => inBed(pennySleeping(fat, !!i))) },
+    carried: { ms: 450, frames: repeat(4, (i) => pennyCarried(fat, i === 3, i === 1)) },
+    faceplant: { ms: 1500, frames: repeat(2, (i) => pennyRest(fat, !!i, 'faceplant')) },
+    sidePlant: { ms: 1500, frames: repeat(2, (i) => pennyRest(fat, !!i, 'sidePlant')) },
+    hungry: { ms: 600, frames: repeat(5, (i) => pennySeated(fat, i === 2, 'hungry', i)) },
+    eat: { ms: 300, frames: repeat(4, (i) => pennyEating(fat, !!(i % 2), i > 1)) },
+    groom: { ms: 350, frames: repeat(6, (i) => pennySeated(fat, !!(i % 2), 'groom', i)) },
+    petted: { ms: 400, frames: repeat(2, (i) => pennySeated(fat, !!i, 'petted', i)) },
+    groggy: { ms: 700, frames: repeat(6, (i) => pennySeated(fat, !!(i % 2), 'groggy', i)) },
+    angry: { ms: 250, frames: repeat(4, (i) => pennyMoving(fat, 'angry', !!(i % 2), i === 3)) },
+    squat: { ms: 500, frames: repeat(3, (i) => pennyMoving(fat, 'squat', !!i, i === 2)) },
+    smug: { ms: 600, frames: repeat(4, (i) => pennySeated(fat, i === 3, 'smug', i)) },
+    strut: { ms: 150, frames: [pennyStanding(fat, true, false, SPREAD), pennyStanding(fat, true, true, LIFT_A), pennyStanding(fat, true, false, SPREAD), pennyStanding(fat, true, true, LIFT_B)].map((frame, i) => pennyWag(frame, [10, 26], i)) },
+    lick: { ms: 180, frames: repeat(4, (i) => pennySeated(fat, !!(i % 2), 'lick', i)) },
+    pose: { ms: 500, frames: repeat(4, (i) => pennySeated(fat, false, 'pose', i)) },
+    crunch: { ms: 220, frames: repeat(4, (i) => pennySeated(fat, !!(i % 2), 'crunch', i)) },
+    cake: { ms: 450, frames: repeat(4, (i) => pennySeated(fat, i === 2, 'cake', i)) },
+    zzz: { ms: 1100, frames: [compose([Z_SMALL, 14, 27]), compose([Z_SMALL, 15, 21]), compose([Z_BIG, 16, 14]), compose(), compose(), compose()] },
+  } satisfies Record<string, Anim>;
+}
 export type Anims = ReturnType<typeof build>;
 export type AnimName = keyof Anims;
 
@@ -983,8 +514,6 @@ export function ground(anim: AnimName): number {
 /** Наряд по случаю: шапка на Новый год, тыква на Хэллоуин. */
 export type Outfit = 'hat' | 'pumpkin';
 
-// Наряды ставятся над рядом макушки (уши + темя) головы анфас, по её левому краю; 12 в ширину.
-const CROWN_ROW = 'kppkkkkkkppk';
 // Только непрозрачная часть уха: за головой во сне видна спина, а не пустота.
 const PENNY_CROWN_ROW = 'PPPppP';
 const OUTFITS: Record<Outfit, Part> = {
@@ -993,22 +522,22 @@ const OUTFITS: Record<Outfit, Part> = {
 };
 
 /**
- * Надеть наряд: ищем макушку старой головы или ухо Пенни.
+ * Надеть наряд: ищем общее ухо Пенни или явную привязку анфаса.
  * Позы без узнаваемой головы остаются как есть. Вход не трогает.
  */
 export function dress(frame: Frame, outfit: Outfit | null): Frame {
   if (!outfit) return frame;
+  const anchor = CROWNS.get(frame);
   const sitEar = frame.findIndex((row) => row.includes(PENNY_SIT_EAR[1]));
-  const crown = frame.some((row) => row.includes(PENNY_CROWN_ROW)) ? PENNY_CROWN_ROW : CROWN_ROW;
-  const y = sitEar >= 0 ? sitEar - 1 : frame.findIndex((row) => row.includes(crown));
+  const y = anchor?.[1] ?? (sitEar >= 0 ? sitEar - 1 : frame.findIndex((row) => row.includes(PENNY_CROWN_ROW)));
   if (y < 0) return frame;
-  const x = sitEar >= 0 ? frame[sitEar].indexOf(PENNY_SIT_EAR[1]) - 2 : frame[y].indexOf(crown) - Number(crown === PENNY_CROWN_ROW);
+  const x = anchor?.[0] ?? (sitEar >= 0 ? frame[sitEar].indexOf(PENNY_SIT_EAR[1]) - 2 : frame[y].indexOf(PENNY_CROWN_ROW) - 1);
   const part = OUTFITS[outfit];
   const g = frame.map((r) => [...r]);
   part.forEach((row, dy) => {
     const ty = y - part.length + dy;
     for (let dx = 0; dx < row.length; dx++)
-      if (row[dx] !== '.' && ty >= 0 && ty < SIZE && x + dx < SIZE) g[ty][x + dx] = row[dx];
+      if (row[dx] !== '.' && ty >= 0 && ty < SIZE && x + dx >= 0 && x + dx < SIZE) g[ty][x + dx] = row[dx];
   });
   return g.map((r) => r.join(''));
 }
