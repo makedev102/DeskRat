@@ -155,17 +155,6 @@
       </div>
     {/if}
 
-    <Check
-      bind:checked={settings.updates}
-      hint={t(
-        'Раз в несколько часов спрашиваем GitHub, нет ли новой версии. Ставится только по клику в меню.',
-        'Every few hours we ask GitHub whether a new version is out. It installs only when you click it in the menu.',
-      )}
-      {disabled}
-    >
-      {t('Проверять обновления', 'Check for updates')}
-    </Check>
-
     <Check bind:checked={settings.feeder} hint={t('Насыпал порций — кошка ест сама, когда проголодается.', 'Fill it up and the cat eats on her own when she gets hungry.')} {disabled}>
       {t('Кормушка', 'Feeder')}
     </Check>

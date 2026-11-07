@@ -48,7 +48,7 @@ pub struct BubbleState(Mutex<Said>);
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     app.manage(BubbleState::default());
     WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
-        .title("DeskPartner")
+        .title("DeskRat")
         .inner_size(200.0, 60.0)
         .visible(false)
         .decorations(false)

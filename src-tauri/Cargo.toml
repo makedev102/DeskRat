@@ -1,15 +1,19 @@
 [package]
-name = "deskpartner"
+name = "deskrat"
 version = "1.0.1"
-description = "A pixel cat that lives on your screen edges and window frames"
-repository = "https://github.com/Forecastych/DeskPartner"
+description = "DeskRat — noncommercial fork of Forecastych/DeskPartner"
 authors = ["Forecastych"]
 license = "PolyForm-Noncommercial-1.0.0"
 edition = "2021"
 rust-version = "1.80"
 
+[package.metadata.deskrat]
+maintainer = "Konstantin Ushakov"
+upstream = "https://github.com/Forecastych/DeskPartner"
+purpose = "Noncommercial memorial project for Penny"
+
 [lib]
-name = "deskpartner_lib"
+name = "deskrat_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -25,7 +29,6 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 # «В этот день» из Википедии: маленький блокирующий клиент, TLS на rustls — без OpenSSL в установщике
 ureq = "3"
 quick-xml = "0.42"
-tauri-plugin-updater = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

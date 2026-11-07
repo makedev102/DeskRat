@@ -83,7 +83,7 @@ pub struct MenuState(Mutex<Shown>);
 pub fn build(app: &AppHandle) -> tauri::Result<()> {
     app.manage(MenuState::default());
     WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
-        .title("DeskPartner")
+        .title("DeskRat")
         .inner_size(240.0, 160.0)
         .visible(false)
         .decorations(false)

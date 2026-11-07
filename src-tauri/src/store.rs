@@ -1,12 +1,12 @@
 //! Папка данных, которую человек выбрал при первом запуске, и файлы состояния в ней.
 //!
-//! Где лежит папка, помнит только `%APPDATA%\DeskPartner\location.json` = `{"dir": "..."}` —
+//! Где лежит папка, помнит только `%APPDATA%\DeskRat\location.json` = `{"dir": "..."}` —
 //! путь и больше ничего: всё остальное о питомце живёт там, куда указал человек.
 //! Ядро — чистые функции с явными путями (их и тестируем), команды Tauri только подставляют
 //! путь к location.json.
 //!
-//! Команды синхронные, то есть идут по одной в главном потоке: два `save_state` одного ключа
-//! не столкнутся на общем `.tmp`. Файлы крошечные, интерфейс это не тормозит.
+//! Все файлы состояния и кэши имеют префикс `deskrat-`, в том числе при выборе папки
+//! DeskPartner. Временные файлы создаются эксклюзивно, отдельно для каждой записи.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -18,15 +18,15 @@ use crate::i18n::{en, tr};
 pub const KEYS: [&str; 9] = ["belly", "sleep", "stats", "spot", "settings", "bowl", "bed", "talk", "revenge"];
 
 /// Имя папки и в %APPDATA%, и в предложениях. Не identifier из tauri.conf.json:
-/// app_config_dir() дал бы `%APPDATA%\io.github.deskpartner`, а человек ищет «DeskPartner».
-const NAME: &str = "DeskPartner";
+/// app_config_dir() дал бы `%APPDATA%\io.github.konstantinushakov.deskrat`, а человек ищет «DeskRat».
+const NAME: &str = "DeskRat";
 
 #[derive(Serialize, Deserialize)]
 struct Location {
     dir: String,
 }
 
-/// `%APPDATA%\DeskPartner\location.json`; вне Windows — `~/.config/DeskPartner/location.json`.
+/// `%APPDATA%\DeskRat\location.json`; вне Windows — `~/.config/DeskRat/location.json`.
 fn location_file() -> Result<PathBuf, String> {
     #[cfg(windows)]
     let base = std::env::var_os("APPDATA").map(PathBuf::from);
@@ -47,28 +47,40 @@ pub fn read_dir(location: &Path) -> Option<PathBuf> {
 /// Запись через `.tmp` и переименование: оборвись она на середине — старый файл цел.
 /// std::fs::rename на Windows заменяет существующий файл (MoveFileEx с REPLACE_EXISTING).
 fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let mut tmp = path.as_os_str().to_owned();
-    tmp.push(".tmp");
-    let tmp = PathBuf::from(tmp);
-    let mut f = fs::File::create(&tmp)?;
-    f.write_all(bytes)?;
-    // без sync_all при отключении питания переименование может пережить данные
-    f.sync_all()?;
-    drop(f);
-    fs::rename(&tmp, path)
+    reject_link(path)?;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    // Exclusive, unique temporary files: never truncate a pre-existing file or link.
+    let (tmp, mut f) = loop {
+        let mut tmp = path.as_os_str().to_owned();
+        tmp.push(format!(".{}-{}.tmp", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+        let tmp = PathBuf::from(tmp);
+        match fs::OpenOptions::new().write(true).create_new(true).open(&tmp) {
+            Ok(f) => break (tmp, f),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
+    };
+    let result = (|| {
+        f.write_all(bytes)?;
+        f.sync_all()?;
+        drop(f);
+        fs::rename(&tmp, path)
+    })();
+    if result.is_err() { let _ = fs::remove_file(&tmp); }
+    result
 }
 
 /// Проверка записью, а не по атрибутам: права, OneDrive и антивирус узнаются только так.
 fn probe(dir: &Path) -> Result<(), String> {
-    const BODY: &[u8] = b"DeskPartner";
-    let file = dir.join(".probe");
-    let ok = fs::write(&file, BODY).is_ok() && fs::read(&file).is_ok_and(|b| b == BODY);
-    let removed = fs::remove_file(&file).is_ok();
-    if ok && removed {
-        Ok(())
-    } else {
-        Err(tr("в эту папку не получается писать", "can't write to this folder").into())
-    }
+    // Only create our own file; the upstream .probe may already contain user data.
+    let file = dir.join(format!(".deskrat-probe-{}", std::process::id()));
+    let mut f = fs::OpenOptions::new().write(true).create_new(true).open(&file)
+        .map_err(|e| e.to_string())?;
+    let result = f.write_all(b"DeskRat").and_then(|_| f.sync_all());
+    drop(f);
+    let removed = fs::remove_file(&file);
+    result.and(removed).map_err(|e| e.to_string())
 }
 
 /// Одна и та же папка, даже если путь записан по-разному (регистр, `..`, слэши).
@@ -80,7 +92,27 @@ fn same_dir(a: &Path, b: &Path) -> bool {
 }
 
 fn state_file(dir: &Path, key: &str) -> PathBuf {
-    dir.join(format!("{key}.json"))
+    dir.join(format!("deskrat-{key}.json"))
+}
+
+// Do not follow state-file links into another app's data. Windows junctions and
+// other reparse points are rejected too. This is not a sandbox against same-user races.
+fn reject_link(path: &Path) -> io::Result<()> {
+    match fs::symlink_metadata(path) {
+        Ok(meta) => {
+            #[cfg(windows)]
+            let linked = {
+                use std::os::windows::fs::MetadataExt;
+                meta.file_attributes() & 0x400 != 0
+            };
+            #[cfg(not(windows))]
+            let linked = meta.file_type().is_symlink();
+            if linked { return Err(io::Error::other("linked state files are not supported")); }
+            Ok(())
+        }
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+    }
 }
 
 /// Копирует файлы состояния из `from` в `to` и сверяет копии. Что в `to` уже есть, не трогаем:
@@ -90,6 +122,14 @@ fn copy_states(from: &Path, to: &Path) -> Result<Vec<PathBuf>, String> {
     let mut copied: Vec<(PathBuf, PathBuf)> = Vec::new();
     for key in KEYS {
         let (src, dst) = (state_file(from, key), state_file(to, key));
+        if let Err(e) = reject_link(&src).and_then(|_| reject_link(&dst)) {
+            for (_, d) in &copied { let _ = fs::remove_file(d); }
+            return Err(e.to_string());
+        }
+        if dst.exists() && !dst.is_file() {
+            for (_, d) in &copied { let _ = fs::remove_file(d); }
+            return Err(format!("not a state file: {}", dst.display()));
+        }
         if dst.exists() || !src.is_file() {
             continue;
         }
@@ -127,9 +167,15 @@ pub fn set_dir(location: &Path, dir: &str) -> Result<(), String> {
     };
     let parent = location.parent().ok_or(tr("не найдена папка профиля", "user profile folder not found"))?;
     let json = serde_json::to_string(&Location { dir: dir.to_string_lossy().into_owned() }).map_err(|e| e.to_string())?;
-    fs::create_dir_all(parent)
+    let remembered = fs::create_dir_all(parent)
         .and_then(|_| write_atomic(location, json.as_bytes()))
-        .map_err(|e| if en() { format!("can't remember the folder: {e}") } else { format!("не получается запомнить папку: {e}") })?;
+        .map_err(|e| if en() { format!("can't remember the folder: {e}") } else { format!("не получается запомнить папку: {e}") });
+    if let Err(e) = remembered {
+        for src in &moved {
+            if let Some(name) = src.file_name() { let _ = fs::remove_file(dir.join(name)); }
+        }
+        return Err(e);
+    }
     for src in moved {
         // не удалился — останется лишняя копия в старой папке, но данные уже в новой
         let _ = fs::remove_file(src);
@@ -137,15 +183,16 @@ pub fn set_dir(location: &Path, dir: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Ключ становится именем файла, поэтому только строчная латиница: ни `..`, ни слэшей.
+/// Only the known state and cache keys are accessible through IPC.
 fn check_key(key: &str) -> Result<(), String> {
-    let ok = (1..=16).contains(&key.len()) && key.bytes().all(|b| b.is_ascii_lowercase());
+    let ok = KEYS.contains(&key) || ["wiki", "reviews", "news"].contains(&key);
     ok.then_some(()).ok_or_else(|| format!("недопустимый ключ: {key:?}"))
 }
 
 pub fn load(dir: Option<&Path>, key: &str) -> Result<Option<String>, String> {
     check_key(key)?;
     let Some(dir) = dir else { return Ok(None) };
+    reject_link(&state_file(dir, key)).map_err(|e| e.to_string())?;
     match fs::read_to_string(state_file(dir, key)) {
         Ok(text) => Ok(Some(text)),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -160,7 +207,7 @@ pub fn save(dir: Option<&Path>, key: &str, value: &str) -> Result<(), String> {
         .map_err(|e| if en() { format!("can't save {key}.json: {e}") } else { format!("не получается сохранить {key}.json: {e}") })
 }
 
-/// Сначала несистемные локальные диски (`X:\DeskPartner`), последним — папка пользователя.
+/// Сначала несистемные локальные диски (`X:\DeskRat`), последним — папка пользователя.
 /// Корня системного диска, Windows и Program Files тут не бывает по построению.
 pub fn suggestions(fixed: &[char], system: char, home: Option<&Path>) -> Vec<String> {
     let drives = fixed
@@ -274,7 +321,7 @@ mod tests {
         fn new() -> Self {
             static N: AtomicU32 = AtomicU32::new(0);
             let n = N.fetch_add(1, Ordering::Relaxed);
-            let p = std::env::temp_dir().join(format!("deskpartner тест папка {}-{n}", std::process::id()));
+            let p = std::env::temp_dir().join(format!("deskrat тест папка {}-{n}", std::process::id()));
             let _ = fs::remove_dir_all(&p);
             fs::create_dir_all(&p).unwrap();
             Tmp(p)
@@ -332,7 +379,8 @@ mod tests {
         assert_eq!(v, serde_json::json!({ "dir": dir.to_str().unwrap() }));
         // проба за собой убрала, временных файлов не осталось
         assert!(!dir.join(".probe").exists());
-        assert!(!loc.with_extension("json.tmp").exists());
+        assert!(fs::read_dir(loc.parent().unwrap()).unwrap().all(|e|
+            !e.unwrap().file_name().to_string_lossy().ends_with(".tmp")));
         save(Some(&dir), "belly", r#"{"full":0.5}"#).unwrap();
         assert_eq!(load(Some(&dir), "belly").unwrap().as_deref(), Some(r#"{"full":0.5}"#));
     }
@@ -341,7 +389,7 @@ mod tests {
     fn set_dir_rejects_relative_path() {
         let t = Tmp::new();
         let loc = t.0.join("location.json");
-        assert!(set_dir(&loc, "DeskPartner").is_err());
+        assert!(set_dir(&loc, "DeskRat").is_err());
         assert!(!loc.exists());
     }
 
@@ -387,8 +435,8 @@ mod tests {
         set_dir(&loc, old.to_str().unwrap()).unwrap();
         put(&old, "belly", "b");
         put(&old, "sleep", "s");
-        // на месте временного файла для sleep — папка: belly скопируется, sleep — нет
-        fs::create_dir_all(new.join("sleep.json.tmp")).unwrap();
+        // Некорректный destination не должен скрывать ошибку и удалять старые данные.
+        fs::create_dir_all(state_file(&new, "sleep")).unwrap();
         assert!(set_dir(&loc, new.to_str().unwrap()).is_err());
         // остались в старой папке со всем, что было; полкопии в новой не висит
         assert_eq!(read_dir(&loc), Some(old.clone()));
@@ -412,11 +460,11 @@ mod tests {
     #[test]
     fn keys_are_checked() {
         let t = Tmp::new();
-        for bad in ["", "Belly", "be-lly", "../x", "a/b", "белка", "abcdefghijklmnopq"] {
+        for bad in ["", "Belly", "be-lly", "../x", "a/b", "белка", "abcdefghijklmnopq", "unknown"] {
             assert!(load(Some(&t.0), bad).is_err(), "{bad:?}");
             assert!(save(Some(&t.0), bad, "x").is_err(), "{bad:?}");
         }
-        assert!(load(Some(&t.0), "abcdefghijklmnop").is_ok());
+        assert!(load(Some(&t.0), "wiki").is_ok());
         // ключ проверяется и без папки
         assert!(load(None, "../x").is_err());
     }
@@ -434,15 +482,64 @@ mod tests {
         save(Some(&t.0), "spot", "один").unwrap();
         save(Some(&t.0), "spot", "два").unwrap();
         assert_eq!(load(Some(&t.0), "spot"), Ok(Some("два".into())));
-        assert!(!t.0.join("spot.json.tmp").exists());
+        assert!(fs::read_dir(&t.0).unwrap().all(|e|
+            !e.unwrap().file_name().to_string_lossy().ends_with(".tmp")));
+    }
+
+    #[test]
+    fn shared_upstream_folder_is_never_imported_or_modified() {
+        let t = Tmp::new();
+        let loc = t.0.join("cfg").join("location.json");
+        let shared = t.0.join("DeskPartner");
+        fs::create_dir_all(&shared).unwrap();
+        for key in KEYS.into_iter().chain(["wiki", "reviews", "news"]) {
+            fs::write(shared.join(format!("{key}.json")), "upstream").unwrap();
+        }
+        fs::write(shared.join(".probe"), "user file").unwrap();
+        fs::write(shared.join("deskrat-belly.json.tmp"), "existing temp").unwrap();
+        set_dir(&loc, shared.to_str().unwrap()).unwrap();
+        assert!(!finished(&loc));
+        for key in ["belly", "settings", "wiki", "reviews", "news"] {
+            assert_eq!(load(Some(&shared), key).unwrap(), None);
+            save(Some(&shared), key, "DeskRat").unwrap();
+        }
+        let new = t.0.join("new");
+        set_dir(&loc, new.to_str().unwrap()).unwrap();
+        assert_eq!(get(&new, "belly").as_deref(), Some("DeskRat"));
+        for key in KEYS.into_iter().chain(["wiki", "reviews", "news"]) {
+            assert_eq!(fs::read_to_string(shared.join(format!("{key}.json"))).unwrap(), "upstream");
+        }
+        assert_eq!(fs::read_to_string(shared.join(".probe")).unwrap(), "user file");
+        assert_eq!(fs::read_to_string(shared.join("deskrat-belly.json.tmp")).unwrap(), "existing temp");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn failed_location_commit_rolls_back_copies() {
+        let t = Tmp::new();
+        let loc = t.0.join("cfg").join("location.json");
+        let old = t.0.join("old");
+        let new = t.0.join("new");
+        set_dir(&loc, old.to_str().unwrap()).unwrap();
+        put(&old, "belly", "old");
+        let original = fs::metadata(&loc).unwrap().permissions();
+        let mut readonly = original.clone();
+        readonly.set_readonly(true);
+        fs::set_permissions(&loc, readonly).unwrap();
+        let result = set_dir(&loc, new.to_str().unwrap());
+        fs::set_permissions(&loc, original).unwrap();
+        assert!(result.is_err());
+        assert_eq!(read_dir(&loc), Some(old.clone()));
+        assert_eq!(get(&old, "belly").as_deref(), Some("old"));
+        assert_eq!(get(&new, "belly"), None);
     }
 
     #[test]
     fn suggestions_skip_system_drive_and_end_with_home() {
         let home = Path::new(r"C:\Users\Влад");
         let got = suggestions(&['C', 'D', 'e'], 'c', Some(home));
-        let want_home = home.join("DeskPartner").to_string_lossy().into_owned();
-        assert_eq!(got, vec![r"D:\DeskPartner".to_string(), r"E:\DeskPartner".into(), want_home]);
+        let want_home = home.join("DeskRat").to_string_lossy().into_owned();
+        assert_eq!(got, vec![r"D:\DeskRat".to_string(), r"E:\DeskRat".into(), want_home]);
         // только системный диск — остаётся папка пользователя
         assert_eq!(suggestions(&['C'], 'C', Some(home)).len(), 1);
         assert!(suggestions(&['C'], 'C', None).is_empty());

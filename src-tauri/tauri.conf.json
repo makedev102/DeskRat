@@ -1,11 +1,11 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "DeskPartner",
+  "productName": "DeskRat",
   "version": "1.0.1",
-  "identifier": "io.github.deskpartner",
+  "identifier": "io.github.konstantinushakov.deskrat",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:1432",
+    "devUrl": "http://localhost:1433",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
@@ -23,29 +23,34 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "shortDescription": "A pixel cat that lives on your screen edges and window frames",
-    "publisher": "Forecastych",
-    "homepage": "https://github.com/Forecastych/DeskPartner",
+    "targets": [
+      "nsis"
+    ],
+    "shortDescription": "DeskRat — noncommercial fork of DeskPartner",
+    "publisher": "DeskRat",
     "copyright": "© 2026 Forecastych. PolyForm Noncommercial 1.0.0",
     "category": "Utility",
-    "createUpdaterArtifacts": true,
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "createUpdaterArtifacts": false,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "installerHooks": "./windows/hooks.nsh",
-        "languages": ["Russian", "English"]
+        "languages": [
+          "Russian",
+          "English"
+        ]
       }
+    },
+    "licenseFile": "../LICENSE",
+    "resources": {
+      "../LICENSE": "LICENSE"
     }
   },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1MThBQzYwN0EzQkQ5QzAKUldUQTJUdDZZS3dZeFp6MStnZE1UQ2g3bjU5RzE4d2hJU3NYdjFQaVdKTzBXbmR2cEpXdys0azcK",
-      "endpoints": ["https://github.com/Forecastych/DeskPartner/releases/latest/download/latest.json"],
-      "windows": {
-        "installMode": "passive"
-      }
-    }
-  }
+  "plugins": {},
+  "mainBinaryName": "deskrat"
 }

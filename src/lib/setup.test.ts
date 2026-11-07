@@ -13,8 +13,8 @@ describe('isDriveRoot', () => {
 
 describe('appFolderFor', () => {
   it('к корню диска добавляет папку программы', () => {
-    expect(appFolderFor('d:\\')).toBe('D:\\DeskPartner');
-    expect(appFolderFor('E:')).toBe('E:\\DeskPartner');
+    expect(appFolderFor('d:\\')).toBe('D:\\DeskRat');
+    expect(appFolderFor('E:')).toBe('E:\\DeskRat');
   });
   it('выбранную папку не трогает', () => {
     expect(appFolderFor('D:\\Мои\\Питомец')).toBeNull();
@@ -23,8 +23,8 @@ describe('appFolderFor', () => {
 
 describe('driveOf', () => {
   it('достаёт букву диска', () => {
-    expect(driveOf('d:\\DeskPartner')).toBe('D:');
-    expect(driveOf('C:\\Users\\vlad\\DeskPartner')).toBe('C:');
+    expect(driveOf('d:\\DeskRat')).toBe('D:');
+    expect(driveOf('C:\\Users\\vlad\\DeskRat')).toBe('C:');
   });
   it('без буквы — null', () => {
     expect(driveOf('\\\\server\\share')).toBeNull();
@@ -46,7 +46,7 @@ describe('errorText', () => {
 
 describe('pickDir', () => {
   it('корень диска меняет на подпапку и запоминает корень', () => {
-    expect(pickDir(' d:\\ ', null)).toEqual({ dir: 'D:\\DeskPartner', root: 'd:\\' });
+    expect(pickDir(' d:\\ ', null)).toEqual({ dir: 'D:\\DeskRat', root: 'd:\\' });
   });
   it('корень, от подпапки которого отказались, оставляет как есть', () => {
     expect(pickDir('D:\\', 'D:\\')).toEqual({ dir: 'D:\\', root: null });
@@ -60,7 +60,7 @@ describe('dirHint', () => {
   it('по-английски', () => {
     setLang('en');
     try {
-      expect(dirHint(0, 2, 'D:\\DeskPartner')).toBe('separate drive D:');
+      expect(dirHint(0, 2, 'D:\\DeskRat')).toBe('separate drive D:');
       expect(errorText(null)).toMatch(/went wrong/);
     } finally {
       setLang('ru');
@@ -68,8 +68,8 @@ describe('dirHint', () => {
   });
 
   it('последняя — папка пользователя, остальные — диски', () => {
-    expect(dirHint(0, 2, 'D:\\DeskPartner')).toBe('отдельный диск D:');
-    expect(dirHint(1, 2, 'C:\\Users\\vlad\\DeskPartner')).toBe('в папке пользователя, на системном диске');
+    expect(dirHint(0, 2, 'D:\\DeskRat')).toBe('отдельный диск D:');
+    expect(dirHint(1, 2, 'C:\\Users\\vlad\\DeskRat')).toBe('в папке пользователя, на системном диске');
   });
   it('без буквы диска — просто «отдельный диск»', () => {
     expect(dirHint(0, 2, '\\\\server\\share')).toBe('отдельный диск');
@@ -78,10 +78,10 @@ describe('dirHint', () => {
 
 describe('samePath', () => {
   it('не замечает регистр, слэши и хвостовой разделитель', () => {
-    expect(samePath('D:\\DeskPartner', ' d:/deskpartner/ ')).toBe(true);
+    expect(samePath('D:\\DeskRat', ' d:/deskrat/ ')).toBe(true);
   });
   it('разные папки и пустая строка — не то же самое', () => {
-    expect(samePath('D:\\DeskPartner', 'E:\\DeskPartner')).toBe(false);
+    expect(samePath('D:\\DeskRat', 'E:\\DeskRat')).toBe(false);
     expect(samePath('', '')).toBe(false);
   });
 });

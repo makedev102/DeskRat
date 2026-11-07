@@ -169,7 +169,7 @@ static OFF: AtomicBool = AtomicBool::new(false);
 /// Фокус не берёт: показывает и двигает его этот модуль через WinAPI без активации.
 fn build_window(app: &AppHandle, label: &str, side: f64) -> tauri::Result<WebviewWindow> {
     let w = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
-        .title("DeskPartner")
+        .title("DeskRat")
         .inner_size(side, side)
         .decorations(false)
         .transparent(true)

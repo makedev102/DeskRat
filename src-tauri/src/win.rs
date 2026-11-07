@@ -46,7 +46,7 @@ pub fn presses() -> u32 {
 /// программ они не отбираются: кому ещё нужны, тот их тоже получит.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hotkey {
-    /// Ctrl+Alt+H — «босс идёт»: спрятать питомца со всем хозяйством, повторно — вернуть.
+    /// Ctrl+Alt+Shift+H — «босс идёт»: спрятать питомца со всем хозяйством, повторно — вернуть.
     Boss,
     /// PrintScreen или Win+Shift+S: снимают экран — кошка позирует.
     Shot,
@@ -81,7 +81,7 @@ pub fn hotkey(vkey: u16, down: bool, repeat: bool, m: Mods) -> Option<Hotkey> {
     }
     match vkey {
         VK_S if m.win && m.shift && !m.ctrl && !m.alt => Some(Hotkey::Shot),
-        VK_H if m.ctrl && m.alt && !m.shift && !m.win => Some(Hotkey::Boss),
+        VK_H if m.ctrl && m.alt && m.shift && !m.win => Some(Hotkey::Boss),
         _ => None,
     }
 }
@@ -131,7 +131,7 @@ pub fn start_input(tracker: Arc<Mutex<Tracker>>) {
 }
 
 unsafe fn input_thread() {
-    let class = wide("deskpartner_raw_input");
+    let class = wide("deskrat_raw_input");
     let hinst = GetModuleHandleW(std::ptr::null());
     let mut wc: WNDCLASSW = std::mem::zeroed();
     wc.lpfnWndProc = Some(wndproc);
@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn hotkeys() {
         let none = Mods::default();
-        let ctrl_alt = Mods { ctrl: true, alt: true, ..none };
+        let ctrl_alt = Mods { ctrl: true, alt: true, shift: true, ..none };
         let win_shift = Mods { win: true, shift: true, ..none };
         assert_eq!(hotkey(VK_SNAPSHOT, false, false, none), Some(Hotkey::Shot));
         assert_eq!(hotkey(VK_SNAPSHOT, true, false, none), None);
@@ -440,7 +440,7 @@ mod tests {
         // автоповтор и отпускание не переключают «босса» туда-обратно
         assert_eq!(hotkey(VK_H, true, true, ctrl_alt), None);
         assert_eq!(hotkey(VK_H, false, false, ctrl_alt), None);
-        assert_eq!(hotkey(VK_H, true, false, Mods { shift: true, ..ctrl_alt }), None);
+        assert_eq!(hotkey(VK_H, true, false, Mods { shift: false, ..ctrl_alt }), None);
         assert_eq!(hotkey(VK_H, true, false, none), None);
     }
 

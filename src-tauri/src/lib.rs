@@ -18,7 +18,6 @@ mod reviews;
 mod shake;
 mod store;
 mod tracker;
-mod update;
 #[cfg(windows)]
 mod win;
 mod wiki;
@@ -162,7 +161,7 @@ fn start_senses(s: Arc<Senses>, pet: AppHandle) {
 fn build_sprite_window(app: &AppHandle, label: &str) -> tauri::Result<WebviewWindow> {
     let side = SPRITE as f64 * ZOOM;
     let mut b = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
-        .title("DeskPartner")
+        .title("DeskRat")
         .inner_size(side, side)
         .decorations(false)
         .transparent(true)
@@ -203,7 +202,7 @@ fn open_sprites(app: &AppHandle) -> tauri::Result<()> {
 /// Закрыли, не закончив, — питомцу негде хранить свою жизнь, выходим.
 fn build_setup_window(app: &AppHandle) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, "setup", WebviewUrl::App("index.html".into()))
-        .title(i18n::tr("DeskPartner — первый запуск", "DeskPartner — first launch"))
+        .title(i18n::tr("DeskRat — первый запуск", "DeskRat — first launch"))
         // рамка своя, пиксельная (src/ui): +32 под её полосу заголовка; тень системная
         .inner_size(560.0, 712.0)
         .decorations(false)
@@ -251,7 +250,7 @@ fn show_settings(app: &AppHandle) -> tauri::Result<()> {
         return w.set_focus();
     }
     WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("index.html".into()))
-        .title(i18n::tr("DeskPartner — настройки", "DeskPartner — settings"))
+        .title(i18n::tr("DeskRat — настройки", "DeskRat — settings"))
         .inner_size(560.0, 752.0)
         .min_inner_size(460.0, 512.0)
         .decorations(false)
@@ -277,7 +276,7 @@ fn show_stats(app: &AppHandle) -> tauri::Result<()> {
         return w.set_focus();
     }
     WebviewWindowBuilder::new(app, "stats", WebviewUrl::App("index.html".into()))
-        .title(i18n::tr("DeskPartner — статистика", "DeskPartner — stats"))
+        .title(i18n::tr("DeskRat — статистика", "DeskRat — stats"))
         .inner_size(560.0, 640.0)
         .min_inner_size(400.0, 360.0)
         .decorations(false)
@@ -321,7 +320,7 @@ fn restart_into_settings(app: &AppHandle) {
 
 /// Пометка «перезапустились из окна настроек — открыть его снова». Живёт в окружении
 /// процесса: аргументы командной строки request_restart передаёт прежние, добавить нечего.
-const REOPEN_SETTINGS: &str = "DESKPARTNER_REOPEN_SETTINGS";
+const REOPEN_SETTINGS: &str = "DESKRAT_REOPEN_SETTINGS";
 
 /// Имя питомца для трея: его присылает окно кошки (name_pet), когда читает или меняет настройки.
 static PET_NAME: Mutex<String> = Mutex::new(String::new());
@@ -330,7 +329,7 @@ static PET_NAME: Mutex<String> = Mutex::new(String::new());
 #[tauri::command]
 async fn name_pet(app: AppHandle, name: String) {
     let name: String = name.trim().chars().take(20).collect();
-    let tip = if name.is_empty() { "DeskPartner".to_string() } else { format!("DeskPartner · {name}") };
+    let tip = if name.is_empty() { "DeskRat".to_string() } else { format!("DeskRat · {name}") };
     *PET_NAME.lock().unwrap() = name;
     if let Some(tray) = app.tray_by_id("main") {
         if let Err(err) = tray.set_tooltip(Some(tip)) {
@@ -391,15 +390,11 @@ fn tray_items() -> Vec<menu::Item> {
         // некормленый кот уходит навсегда — без этого пункта вернуть питомца было бы нечем
         entry("adopt", tr("Новый котик", "Adopt a new cat"), Some(tr("если прежний сбежал", "if the last one ran away"))),
     ]);
-    if let Some(v) = update::version() {
-        // ставим по клику: окно кошки сначала допишет всё на диск
-        items.push(entry("update", &format!("{} {v}", tr("Обновить до", "Update to")), Some(tr("перезапустится сама", "restarts by itself"))));
-    }
     #[cfg(windows)]
     items.push(if win::bossed() {
-        entry("boss", tr("Показать питомца", "Show your pet"), Some("Ctrl+Alt+H"))
+        entry("boss", tr("Показать питомца", "Show your pet"), Some("Ctrl+Alt+Shift+H"))
     } else {
-        entry("boss", tr("Спрятать питомца", "Hide your pet"), Some(tr("Ctrl+Alt+H — и обратно", "Ctrl+Alt+H to bring back")))
+        entry("boss", tr("Спрятать питомца", "Hide your pet"), Some(tr("Ctrl+Alt+Shift+H — и обратно", "Ctrl+Alt+Shift+H to bring back")))
     });
     items.extend([
         menu::Item::Separator { separator: true },
@@ -414,12 +409,6 @@ fn tray_items() -> Vec<menu::Item> {
 /// Выбрали пункт в меню трея (menu.rs зовёт сюда вместо события окну).
 pub(crate) fn tray_pick(app: &AppHandle, id: &str) {
     match id {
-        // ставить — через окно кошки: ему надо успеть дописать файлы
-        "update" => {
-            if let Err(err) = app.emit_to("pet", "update-install", ()) {
-                eprintln!("update: {err}");
-            }
-        }
         "call" | "adopt" | "dev-say" | "dev-hungry" | "dev-hunter" | "dev-yarn" | "dev-news" | "dev-revenge" => {
             if let Err(err) = app.emit_to("pet", id, ()) {
                 eprintln!("{id}: {err}");
@@ -451,7 +440,7 @@ pub(crate) fn tray_pick(app: &AppHandle, id: &str) {
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     // системного меню у значка нет: по любой кнопке открываем своё, пиксельное
-    let mut tray = TrayIconBuilder::with_id("main").tooltip("DeskPartner").on_tray_icon_event(|tray, e| {
+    let mut tray = TrayIconBuilder::with_id("main").tooltip("DeskRat").on_tray_icon_event(|tray, e| {
         if let TrayIconEvent::Click { button_state: MouseButtonState::Up, .. } = e {
             if let Err(err) = menu::open(tray.app_handle(), menu::TRAY.into(), tray_items()) {
                 eprintln!("tray menu: {err}");
@@ -480,8 +469,6 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
         // выбор папки данных в окне первого запуска
         .plugin(tauri_plugin_dialog::init())
-        // обновления из GitHub Releases (update.rs)
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Arc::new(Masks::default()))
         .manage(feel.clone())
         .invoke_handler(tauri::generate_handler![
@@ -525,8 +512,6 @@ pub fn run() {
             news::news_vote,
             news::news_status,
             news::news_refresh,
-            update::set_updates,
-            update::install_update,
         ])
         .setup(move |app| {
             // язык — до окон и трея: они строятся уже на нём
@@ -545,7 +530,6 @@ pub fn run() {
                 start_senses(feel, app.handle().clone());
             }
             news::start();
-            update::start(app.handle().clone());
             // снимаем сразу: следующий перезапуск (или программа, которую питомец запустит) её не унаследует
             let reopen = std::env::var_os(REOPEN_SETTINGS).is_some();
             std::env::remove_var(REOPEN_SETTINGS);
@@ -561,5 +545,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("не удалось запустить DeskPartner");
+        .expect("не удалось запустить DeskRat");
 }

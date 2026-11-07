@@ -206,7 +206,7 @@
   }
 </script>
 
-<Dialog title="DeskPartner" busy={moving || relaunching}>
+<Dialog title="DeskRat" busy={moving || relaunching}>
   {#snippet header()}
     <h1>{t('Настройки', 'Settings')}</h1>
   {/snippet}
@@ -277,7 +277,7 @@
       mono
       spellcheck="false"
       autocomplete="off"
-      placeholder={t('Например, E:\\DeskPartner', 'For example, E:\\DeskPartner')}
+      placeholder={t('Например, E:\\DeskRat', 'For example, E:\\DeskRat')}
       aria-describedby="move-how"
       disabled={moving}
     >

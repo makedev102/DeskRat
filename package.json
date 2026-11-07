@@ -1,10 +1,10 @@
 {
-  "name": "deskpartner",
+  "name": "deskrat",
   "private": true,
   "version": "1.0.1",
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
-  "description": "A pixel cat that lives on your screen edges and window frames",
+  "description": "DeskRat — noncommercial fork of Forecastych/DeskPartner",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

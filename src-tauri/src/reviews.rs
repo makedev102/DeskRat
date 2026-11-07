@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const WIKIDATA: &str = "https://www.wikidata.org/w/api.php";
-const USER_AGENT: &str = concat!("DeskPartner/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("DeskRat/", env!("CARGO_PKG_VERSION"));
 const TIMEOUT: Duration = Duration::from_secs(15);
 /// Ключ кэша в папке данных; как и у wiki, его нет в store::KEYS — при смене папки скачается заново.
 const CACHE: &str = "reviews";
@@ -390,7 +390,7 @@ mod tests {
 
     #[test]
     fn cache_keeps_misses_for_a_month() {
-        let dir = std::env::temp_dir().join(format!("deskpartner-reviews-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("deskrat-reviews-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let film = Film { label: "Интерстеллар".into(), scores: vec![0.73], lang: "ru".into(), reception: String::new() };
         remember(Some(&dir), Entry { key: "интерстеллар".into(), at: 1000, film: Some(film.clone()) });

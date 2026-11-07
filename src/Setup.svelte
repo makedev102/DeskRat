@@ -17,7 +17,7 @@
   let settings = $state({ ...defaults(), name: suggestName(Math.random) });
   let dir = $state('');
   let suggested = $state<string[]>([]);
-  /** Корень диска, вместо которого подставили `X:\DeskPartner`; показываем, чтобы можно было отказаться. */
+  /** Корень диска, вместо которого подставили `X:\DeskRat`; показываем, чтобы можно было отказаться. */
   let rootPicked = $state<string | null>(null);
   /** Человек отказался от подпапки — корень больше не переспрашиваем. */
   let keepRoot = $state<string | null>(null);
@@ -143,7 +143,7 @@
   }
 </script>
 
-<Dialog title={t('DeskPartner · первый запуск', 'DeskPartner · first launch')} {onsubmit} {busy}>
+<Dialog title={t('DeskRat · первый запуск', 'DeskRat · first launch')} {onsubmit} {busy}>
   {#snippet header()}
     <ol class="steps" aria-label={t('Шаги настройки', 'Setup steps')}>
       {#each TITLES as title, i}
@@ -191,7 +191,7 @@
       mono
       spellcheck="false"
       autocomplete="off"
-      placeholder={t('Например, D:\\DeskPartner', 'For example, D:\\DeskPartner')}
+      placeholder={t('Например, D:\\DeskRat', 'For example, D:\\DeskRat')}
       disabled={busy}
     >
       <Button onclick={browse} disabled={busy}>{t('Обзор…', 'Browse…')}</Button>

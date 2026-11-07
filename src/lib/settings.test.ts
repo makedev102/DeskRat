@@ -13,10 +13,7 @@ describe('настройки', () => {
     expect(parse(JSON.stringify({ feeder: true })).yarn).toBe(true);
     expect(parse(JSON.stringify({ yarn: false })).yarn).toBe(false);
     expect(parse(JSON.stringify({ yarn: 'нет' })).yarn).toBe(true);
-    // обновления проверяем сразу; у старых настроек без поля — тоже
-    expect(d.updates).toBe(true);
-    expect(parse(JSON.stringify({ feeder: true })).updates).toBe(true);
-    expect(parse(JSON.stringify({ updates: false })).updates).toBe(false);
+    expect(parse(JSON.stringify({ updates: true }))).not.toHaveProperty('updates');
   });
 
   it('туда и обратно без потерь', () => {

@@ -18,7 +18,6 @@ mod filter;
 mod parse;
 
 use std::collections::{BTreeMap, HashSet};
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -41,8 +40,7 @@ const TICK: Duration = Duration::from_secs(10 * 60);
 const TIMEOUT: Duration = Duration::from_secs(20);
 /// Самая тяжёлая из лент весит ~700 КБ; больше 4 МБ — это уже не лента.
 const BODY_LIMIT: u64 = 4 * 1024 * 1024;
-const USER_AGENT: &str = concat!("DeskPartner/", env!("CARGO_PKG_VERSION"));
-const FILE: &str = "news.json";
+const USER_AGENT: &str = concat!("DeskRat/", env!("CARGO_PKG_VERSION"));
 /// «Больше такого» умножает вес источника, «меньше» делит; ноль нельзя — источник просто реже.
 const VOTE_UP: f64 = 1.5;
 const VOTE_DOWN: f64 = 0.5;
@@ -309,16 +307,11 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-fn path() -> Option<PathBuf> {
-    crate::store::data_dir().map(|d| PathBuf::from(d).join(FILE))
-}
-
 /// Кэш в памяти; при первом обращении — с диска. Папки данных нет — живём в памяти.
 fn with_cache<R>(f: impl FnOnce(&mut Cache) -> R) -> R {
     let mut guard = lock(&STATE);
     let cache = guard.get_or_insert_with(|| {
-        let mut c: Cache = path()
-            .and_then(|p| std::fs::read_to_string(p).ok())
+        let mut c: Cache = crate::store::load_state("news".into()).ok().flatten()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
         c.en = crate::i18n::en();
@@ -330,12 +323,8 @@ fn with_cache<R>(f: impl FnOnce(&mut Cache) -> R) -> R {
 
 /// Запись через временный файл: оборванная запись не портит прежний news.json.
 fn save(cache: &Cache) {
-    let Some(p) = path() else { return };
     let Ok(json) = serde_json::to_string(cache) else { return };
-    let tmp = p.with_extension("json.tmp");
-    if std::fs::write(&tmp, json).is_ok() && std::fs::rename(&tmp, &p).is_err() {
-        let _ = std::fs::remove_file(&tmp);
-    }
+    let _ = crate::store::save_state("news".into(), json);
 }
 
 // ---------- сеть ----------

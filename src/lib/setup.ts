@@ -3,14 +3,14 @@
 import { t } from './i18n';
 
 /** Имя папки, которую предлагаем создать, если человек выбрал корень диска. */
-export const APP_FOLDER = 'DeskPartner';
+export const APP_FOLDER = 'DeskRat';
 
 /** «D:», «D:\» или «D:/» — корень диска. Сыпать файлы прямо в корень неряшливо. */
 export function isDriveRoot(path: string): boolean {
   return /^[a-z]:[\\/]?$/i.test(path.trim());
 }
 
-/** Для корня диска — `X:\DeskPartner`, для обычной папки — null: её человек выбрал сам. */
+/** Для корня диска — `X:\DeskRat`, для обычной папки — null: её человек выбрал сам. */
 export function appFolderFor(path: string): string | null {
   if (!isDriveRoot(path)) return null;
   return `${path.trim().slice(0, 2).toUpperCase()}\\${APP_FOLDER}`;

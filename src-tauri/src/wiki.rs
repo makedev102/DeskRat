@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-const USER_AGENT: &str = concat!("DeskPartner/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("DeskRat/", env!("CARGO_PKG_VERSION"));
 /// Не отвечает столько — считаем, что сети нет; облачко подождёт до следующей попытки.
 const TIMEOUT: Duration = Duration::from_secs(15);
 /// Ключ кэша в папке данных. Его нет в store::KEYS: при смене папки не переезжает, скачается заново.
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn cache_is_for_one_day() {
-        let dir = std::env::temp_dir().join(format!("deskpartner-wiki-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("deskrat-wiki-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let events = vec![Event { year: 1957, text: "Спутник".into(), about: vec![] }];
         let json = serde_json::to_string(&Cache { day: "2026-10-04".into(), lang: "ru".into(), events: events.clone() }).unwrap();
