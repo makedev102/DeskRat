@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Пенни — базовые анимации</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 24px auto; padding: 0 20px; max-width: 1280px; background: #efedf2; color: #302c38; font: 15px/1.5 system-ui; }
+  h1 { margin-bottom: 4px; font-size: 24px; }
+  p { margin: 4px 0 16px; }
+  label, button { margin-right: 16px; }
+  select, button { font: inherit; padding: 4px 10px; }
+  main { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
+  article { min-width: 0; }
+  h2 { font-size: 17px; margin: 0 0 6px; }
+  .stage { padding: 8px; margin-bottom: 8px; border-radius: 8px; }
+  .light { background: #fffdfa; color: #605968; }
+  .dark { background: #252735; color: #d3cedd; }
+  .pair { display: flex; justify-content: space-around; }
+  figure { margin: 0; text-align: center; }
+  canvas { display: block; image-rendering: pixelated; }
+  .large { width: 128px; height: 128px; }
+  .small { width: 32px; height: 32px; margin: 4px auto; }
+  figcaption { font-size: 12px; }
+  footer { margin-top: 16px; color: #605968; }
+  @media (max-width: 1190px) { main { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 620px) { main { grid-template-columns: 1fr; } }
+</style>
+<h1>Пенни — базовый образ</h1>
+<p>Настоящие кадры DeskRat, сетка 32×32. В каждой паре: влево и вправо, увеличение 4× и исходный размер 1×.</p>
+<label>FATS <select id="fat"><option value="0">0 — лето</option><option value="1" selected>1 — межсезонье</option><option value="2">2 — зима</option></select></label>
+<button id="pause">Пауза</button><button id="step">Следующий кадр</button>
+<label><input id="mask" type="checkbox"> Маска кликов и опора</label>
+<main></main>
+<footer>Для согласования: силуэт и мордочка, размер и расположение двух пятен, уши, хвост, шаг и дыхание. Остальные позы — этап 3.</footer>
+<script type="module">
+  import { ANIMS, SIZE, draw, flip, ground, hitMask } from '/src/lib/sprite.ts';
+  const views = [];
+  const labels = { stand: 'Стоит · stand', walk: 'Идёт · walk', sit: 'Сидит · sit', sleep: 'Спит · sleep' };
+  for (const [name, label] of Object.entries(labels)) {
+    const article = document.createElement('article');
+    article.innerHTML = `<h2>${label}</h2>`;
+    for (const theme of ['light', 'dark']) {
+      const stage = document.createElement('div');
+      stage.className = `stage ${theme}`;
+      const pair = document.createElement('div');
+      pair.className = 'pair';
+      for (const facing of [-1, 1]) {
+        const figure = document.createElement('figure');
+        for (const scale of ['large', 'small']) {
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = SIZE;
+          canvas.className = scale;
+          figure.append(canvas);
+          views.push({ canvas, name, facing });
+        }
+        const caption = document.createElement('figcaption');
+        caption.textContent = facing === -1 ? '← 4× / 1×' : '→ 4× / 1×';
+        figure.append(caption);
+        pair.append(figure);
+      }
+      stage.append(pair);
+      article.append(stage);
+    }
+    document.querySelector('main').append(article);
+  }
+  let elapsed = 0, last = performance.now(), paused = false, offset = 0;
+  const fat = document.querySelector('#fat');
+  const mask = document.querySelector('#mask');
+  function render() {
+    for (const { canvas, name, facing } of views) {
+      const anim = ANIMS[Number(fat.value)][name];
+      const source = anim.frames[(Math.floor(elapsed / anim.ms) + offset) % anim.frames.length];
+      const frame = facing === -1 ? flip(source) : source;
+      const ctx = canvas.getContext('2d');
+      draw(ctx, frame);
+      if (mask.checked) {
+        const rows = hitMask(frame);
+        ctx.fillStyle = '#32c6bd88';
+        rows.forEach((bits, y) => { for (let x = 0; x < SIZE; x++) if ((bits >>> x) & 1) ctx.fillRect(x, y, 1, 1); });
+        ctx.fillStyle = '#ff9933aa';
+        ctx.fillRect(0, ground(name), SIZE, 1);
+      }
+    }
+  }
+  document.querySelector('#pause').onclick = (event) => {
+    paused = !paused;
+    event.target.textContent = paused ? 'Продолжить' : 'Пауза';
+  };
+  document.querySelector('#step').onclick = () => {
+    paused = true;
+    document.querySelector('#pause').textContent = 'Продолжить';
+    offset++;
+    render();
+  };
+  function tick(now) {
+    if (!paused) elapsed += Math.max(0, now - last);
+    last = now;
+    render();
+    requestAnimationFrame(tick);
+  }
+  render();
+  requestAnimationFrame(tick);
+</script>
+</html>

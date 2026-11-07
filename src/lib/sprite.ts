@@ -1,5 +1,5 @@
-// Кошка 32×32, нарисованная попиксельно. Кадры собираются из деталей — голова, тело, лапы, хвост, —
-// поэтому одна и та же голова не перерисовывается в каждой позе, а шаги отличаются только лапами.
+// Персонаж 32×32. Базовые позы — Пенни; остальные пока upstream.
+// Кадры собираются из общих головы, тела, лап и хвоста.
 // Все позы смотрят вправо; влево — `flip`.
 
 export const SIZE = 32;
@@ -11,6 +11,12 @@ export type Frame = string[];
 type Part = string[];
 
 export const PALETTE: Record<string, string> = {
+  // Цвета Пенни отдельно от старых поз и предметов.
+  v: '#77717b', // мягкий контур белой шерсти
+  F: '#faf7f2', // белая шерсть
+  L: '#dedbdc', // тень шерсти, не пятно
+  D: '#aaa7ad', // два серых пятнышка
+  P: '#d797a6', // тень розовой кожи
   k: '#2b2b33', // контур
   f: '#9aa0ad', // шерсть
   d: '#6f7584', // полоски
@@ -579,9 +585,149 @@ export interface Anim {
   ms: number;
 }
 
+// Сетка второго примера пользователя, 33×13. Цвета шерсти заменены ниже.
+// Первые три столбца — только кончик хвоста; его укорочение даёт поля в 32×32.
+const PENNY_REFERENCE: Part = [
+  '..........................PP.....',
+  '.......................PPPppP....',
+  '................vvvvvv.Pppvvvv...',
+  '..............vvFFFFFFvPppFFFvv..',
+  '.............vFFFwwwwFFFPFFvFFFvP',
+  '............vFFwwwwwwwwFFFFFFFFFv',
+  '...........PwwwwwwFFwwwwFFFFvvvv.',
+  '..........pPFwwwwFFFFwwwFFFv.....',
+  '.......ppPPPLFwwwLLLLFFFFvv......',
+  '.....pPPPP...LFFLFFFFLLFvv.......',
+  '...pPP........LLP......vvP.......',
+  '..pP..........p.PP.....p.PP......',
+  'ppP...........pp.......pp........',
+];
+const pennyFur = (row: string) => row.replaceAll('w', 'F');
+const PENNY_HEAD: Part = PENNY_REFERENCE.slice(0, 10).map((row) => pennyFur(row.slice(22)));
+const PENNY_PATCH: Part = ['.DD.', 'DDDD', '.DD.'];
+const PENNY_PAW: Part = ['Ppp', '.PP'];
+/** Тот же хвост из примера, уложенный под высоту сидячей или спящей позы. */
+function pennyFloorTail(baseX: number, baseY: number, sway: boolean): [Part, number, number] {
+  const tail = Array.from({ length: SIZE - baseY }, () => Array<string>(16).fill('.'));
+  for (let y = 6; y < PENNY_REFERENCE.length; y++)
+    for (let x = 0; x < 12; x++) {
+      const c = PENNY_REFERENCE[y][x];
+      if (c !== 'p' && c !== 'P') continue;
+      const tx = 1 + Math.round((baseX - 2) * x / 11) + Number(sway && y === 12);
+      const ty = Math.round((SIZE - 1 - baseY) * (y - 6) / 6);
+      tail[ty][tx] = c;
+    }
+  return [tail.map((row) => row.join('')), 1, baseY];
+}
+
+function pennyHead(shut: boolean): Part {
+  const part = PENNY_HEAD.map((row) => [...row]);
+  for (const [x, y] of [[5, 3], [6, 3], [6, 4], [7, 4], [8, 4]]) part[y][x] = 'D';
+  part[4][5] = shut ? 'L' : 'k';
+  part[4][10] = 'p';
+  return part.map((row) => row.join(''));
+}
+
+/** Круп с постоянным пятном у основания хвоста; жирок растёт вниз. */
+function pennyBody(fat: Fat): Part {
+  return [
+    '.....vvvvv.......',
+    '...vvFFFFFvv.....',
+    '..vFFFFFFFFFvv...',
+    '.vFFFFFFFFFFFFv..',
+    ...Array<string>(2 + fat).fill('vFFFFFFFFFFFFFFFv'),
+    '.vLLLLLLLLLLLLv..',
+    '..vvv..vvvvvv....',
+  ];
+}
+
+function pennyStanding(fat: Fat, shut: boolean, sway: boolean, step: [number, boolean][] = []): Frame {
+  const head = pennyHead(shut);
+  head[3] = 'F' + head[3].slice(1); // внутренняя кромка шеи сливается с плечом
+  const body = PENNY_REFERENCE.map((row, y) => [...pennyFur(row.slice(3))].map((c, x) => {
+    if (y < 10 && x >= 19) return '.'; // общая голова рисуется отдельно
+    if (y >= 10 && x >= 11 && (c === 'p' || c === 'P')) return '.'; // лапки отдельно
+    return c;
+  }).join(''));
+  body[12] = 'pp' + body[12].slice(2); // целый кончик вместо обрезанных трёх клеток
+  if (sway) body[12] = '.p' + body[12].slice(2);
+  body.splice(6, 0, ...Array<string>(fat).fill(body[5]));
+  const legs = [12, 21].map((x, i): [Part, number, number] => {
+    const [dx, up] = step[i === 0 ? 0 : 2] ?? [0, false];
+    return [[ '..P.', 'p.PP', 'pp..' ], x + dx, 29 - Number(up)];
+  });
+  return compose(
+    [body, 1, 19 - fat],
+    [['v', 'F', 'F', 'F', 'F'], 20, 21], // диагональная ступенька от спины к уху
+    [PENNY_PATCH, 10, 24],
+    ...legs,
+    [head, 20, 19],
+  );
+}
+
+const PENNY_SIT_REFERENCE: Part = [
+  '.....FFFF...',
+  '.....FFkFFp.',
+  '...ppFFFFF..',
+  '....FFFF....',
+  '...FFFL.....',
+  '..FFFFF.....',
+  '..FFFFF.....',
+  '.FFFFLF.....',
+  '.FFFpLLP....',
+  'FFFFLL......',
+  'FFFFLL......',
+  'FFFFLLF.....',
+  'FFFLLLF.....',
+  'FFppLLFPP...',
+];
+const PENNY_SIT_EAR: Part = ['.PP.', 'PppP', 'PppP', '.PP.'];
+
+function pennySitting(fat: Fat, shut: boolean, sway: boolean): Frame {
+  // Непосредственная сетка верхней левой крыски со стикерного референса.
+  // Голова и плечи здесь принадлежат самой сидячей позе, без растяжения шеи.
+  const body = PENNY_SIT_REFERENCE.map((row, y) => {
+    const start = row.search(/[FL]/);
+    return y >= 4 && start >= 0 ? row.slice(0, start) + 'F'.repeat(fat) + row.slice(start) : row;
+  });
+  const g = body.map((row) => [...row.padEnd(14, '.')]);
+  for (const [x, y] of [[7, 0], [8, 0], [8, 1], [9, 1], [8, 2]]) g[y][x] = 'D';
+  g[1][7] = shut ? 'L' : 'k';
+  // Однопиксельная кромка снаружи шерсти; хвост и розовые лапы без обводки.
+  const outline = Array.from({ length: 15 }, () => Array<string>(16).fill('.'));
+  g.forEach((row, y) => row.forEach((c, x) => {
+    if (!'FLDk'.includes(c)) return;
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const tx = x + dx + 1, ty = y + dy + 1;
+      if (tx >= 0 && tx < 16 && ty >= 0 && ty < 15) outline[ty][tx] = 'v';
+    }
+  }));
+  return compose(pennyFloorTail(13, 30, sway), [outline.map((row) => row.join('')), 12, 17],
+    [g.map((row) => row.join('')), 13, 18], [PENNY_PATCH, 14, 28], [PENNY_SIT_EAR, 15, 16]);
+}
+
+function pennySleeping(fat: Fat, breath: boolean): Frame {
+  const body = pennyBody(fat);
+  // Во сне поджатые бёдра образуют сплошную линию опоры.
+  body[body.length - 1] = '.vvvvvvvvvvvvvv..';
+  // Низ y27: контракт сна на рамке. На вдохе движется только спина.
+  if (breath) {
+    body.unshift('......vvv........');
+    body[1] = '.....vFFFv.......';
+  }
+  return compose(
+    pennyFloorTail(10, 26, breath),
+    [body, 9, 28 - body.length],
+    [PENNY_PATCH, 11, 23],
+    [PENNY_PAW, 22, 26],
+    [pennyHead(true), 20, 18],
+    breath ? [Z_BIG, 26, 6] : [Z_SMALL, 25, 11],
+  );
+}
+
 function build(fat: Fat) {
   const body = sideBody(fat);
-  const sleep: Anim = {
+  const bedSleep: Anim = {
     ms: 1500,
     frames: [
       sleeping(body, SLEEP_TAIL, [Z_SMALL, 25, 11]),
@@ -592,19 +738,19 @@ function build(fat: Fat) {
     stand: {
       ms: 500,
       frames: [
-        standing(fat, EYES_OPEN, TAIL_UP),
-        standing(fat, EYES_OPEN, TAIL_SWAY),
-        standing(fat, EYES_OPEN, TAIL_UP),
-        standing(fat, EYES_SHUT, TAIL_UP),
+        pennyStanding(fat, false, false),
+        pennyStanding(fat, false, true),
+        pennyStanding(fat, false, false),
+        pennyStanding(fat, true, false),
       ],
     },
     walk: {
       ms: 150,
       frames: [
-        standing(fat, EYES_OPEN, TAIL_UP, SPREAD),
-        standing(fat, EYES_OPEN, TAIL_SWAY, LIFT_A),
-        standing(fat, EYES_OPEN, TAIL_UP, SPREAD),
-        standing(fat, EYES_OPEN, TAIL_SWAY, LIFT_B),
+        pennyStanding(fat, false, false, SPREAD),
+        pennyStanding(fat, false, true, LIFT_A),
+        pennyStanding(fat, false, false, SPREAD),
+        pennyStanding(fat, false, true, LIFT_B),
       ],
     },
     jump: {
@@ -639,11 +785,11 @@ function build(fat: Fat) {
     sit: {
       ms: 600,
       frames: [
-        sitting(fat, EYES_OPEN, SIT_TAIL),
-        sitting(fat, EYES_OPEN, SIT_TAIL),
-        sitting(fat, EYES_OPEN, SIT_TAIL),
-        sitting(fat, EYES_OPEN, SIT_TAIL),
-        sitting(fat, EYES_SHUT, SIT_TAIL),
+        pennySitting(fat, false, false),
+        pennySitting(fat, false, true),
+        pennySitting(fat, false, false),
+        pennySitting(fat, false, false),
+        pennySitting(fat, true, false),
       ],
     },
     loaf: {
@@ -666,8 +812,9 @@ function build(fat: Fat) {
         sideLoaf(body, EYES_SHUT, FLOOR_TAIL),
       ],
     },
-    sleep,
-    bed: { ms: sleep.ms, frames: sleep.frames.map(inBed) },
+    sleep: { ms: 1500, frames: [pennySleeping(fat, false), pennySleeping(fat, true)] },
+    // Лежак и остальные позы переводятся на образ Пенни на этапе 3.
+    bed: { ms: bedSleep.ms, frames: bedSleep.frames.map(inBed) },
     carried: {
       ms: 450,
       frames: [
@@ -838,20 +985,24 @@ export type Outfit = 'hat' | 'pumpkin';
 
 // Наряды ставятся над рядом макушки (уши + темя) головы анфас, по её левому краю; 12 в ширину.
 const CROWN_ROW = 'kppkkkkkkppk';
+// Только непрозрачная часть уха: за головой во сне видна спина, а не пустота.
+const PENNY_CROWN_ROW = 'PPPppP';
 const OUTFITS: Record<Outfit, Part> = {
   hat: ['........kk..', '.......kIIk.', '......kHkk..', '.....kHHk...', '....kHHHHk..', '..kIIIIIIk..'],
   pumpkin: ['.....gk.....', '...kkgkkk...', '..koOoOook..', '..kOoOoOok..', '..kkkkkkkk..'],
 };
 
 /**
- * Надеть наряд. Работает в любой позе, где голова анфас: ищем ряд макушки. Позы с головой
- * боком или без головы остаются как есть. Вход не трогает.
+ * Надеть наряд: ищем макушку старой головы или ухо Пенни.
+ * Позы без узнаваемой головы остаются как есть. Вход не трогает.
  */
 export function dress(frame: Frame, outfit: Outfit | null): Frame {
   if (!outfit) return frame;
-  const y = frame.findIndex((row) => row.includes(CROWN_ROW));
+  const sitEar = frame.findIndex((row) => row.includes(PENNY_SIT_EAR[1]));
+  const crown = frame.some((row) => row.includes(PENNY_CROWN_ROW)) ? PENNY_CROWN_ROW : CROWN_ROW;
+  const y = sitEar >= 0 ? sitEar - 1 : frame.findIndex((row) => row.includes(crown));
   if (y < 0) return frame;
-  const x = frame[y].indexOf(CROWN_ROW);
+  const x = sitEar >= 0 ? frame[sitEar].indexOf(PENNY_SIT_EAR[1]) - 2 : frame[y].indexOf(crown) - Number(crown === PENNY_CROWN_ROW);
   const part = OUTFITS[outfit];
   const g = frame.map((r) => [...r]);
   part.forEach((row, dy) => {

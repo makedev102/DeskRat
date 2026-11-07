@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMS, bedFrame, bedMask, BOWL_X, bowlFrame, bowlLeft, fatOn, FATS, flip, hitMask, onBowl, PALETTE, PUDDLE_FRAMES, PUDDLE_H, PUDDLE_W, SCRUFF_AT, SIZE } from './sprite';
+import { ANIMS, bedFrame, bedMask, BOWL_X, bowlFrame, bowlLeft, dress, fatOn, FATS, flip, ground, hitMask, onBowl, PALETTE, PUDDLE_FRAMES, PUDDLE_H, PUDDLE_W, SCRUFF_AT, SIZE } from './sprite';
 
 const all = FATS.flatMap((fat) =>
   Object.entries(ANIMS[fat]).flatMap(([name, a]) => a.frames.map((f, i) => [`${name}[${i}] жир ${fat}`, f] as const)),
@@ -7,6 +7,77 @@ const all = FATS.flatMap((fat) =>
 const width = (bits: number) => bits.toString(2).replaceAll('0', '').length;
 /** Сколько пикселей зверя в кадре. */
 const area = (f: string[]) => hitMask(f).reduce((n, row) => n + width(row), 0);
+
+describe('Пенни — базовые позы', () => {
+  const basic = FATS.flatMap((fat) => (['stand', 'walk', 'sit', 'sleep'] as const).flatMap((name) =>
+    ANIMS[fat][name].frames.map((frame, i) => [`${name}[${i}] FATS ${fat}`, name, frame] as const)));
+
+  it('у стоящей и идущей крыски живот залит шерстью, фон через него не виден', () => {
+    for (const fat of FATS)
+      for (const name of ['stand', 'walk'] as const)
+        for (const frame of ANIMS[fat][name].frames) {
+          for (let y = 25; y <= 28; y++)
+            for (let x = 16; x <= 19; x++) expect(frame[y][x]).not.toBe('.');
+          expect(frame[26][10]).not.toBe('.'); // стык хвоста и крупа
+          expect(frame[20][20]).toBe('.'); // над плечом нет добавочного пикселя
+          expect(frame[21][20]).toBe('v'); // диагональная ступенька на ряд ниже спины
+          expect(frame[22][20]).toBe('F'); // внутренний контур шеи не выступает через шерсть
+        }
+  });
+
+  it.each(basic)('%s — два отдельных пятна, белая шерсть и запас по краям', (_, name, frame) => {
+    const spots = new Set<string>();
+    frame.forEach((row, y) => [...row].forEach((c, x) => { if (c === 'D') spots.add(`${x},${y}`); }));
+    const groups: number[] = [];
+    while (spots.size) {
+      const queue = [spots.values().next().value!];
+      spots.delete(queue[0]);
+      let count = 0;
+      while (queue.length) {
+        const [x, y] = queue.pop()!.split(',').map(Number);
+        count++;
+        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+          const key = `${x + dx},${y + dy}`;
+          if (spots.delete(key)) queue.push(key);
+        }
+      }
+      groups.push(count);
+    }
+    expect(groups.sort((a, b) => a - b)).toEqual([5, 8]);
+    if (name === 'sit') {
+      expect(frame[16][16]).toBe('P'); // ухо выступает над макушкой
+      expect(frame[17][15]).toBe('P'); // и наружу за задний контур головы
+      expect(frame[17][16]).toBe('p');
+    }
+    // Белая шерсть преобладает над тенями и пятнами независимо от площади силуэта.
+    const pixels = frame.join('');
+    expect([...pixels].filter((c) => c === 'F').length).toBeGreaterThan([...pixels].filter((c) => c === 'L' || c === 'D').length);
+    for (const facing of [frame, flip(frame)]) {
+      expect(facing[0]).toBe('.'.repeat(SIZE));
+      expect(facing.every((row) => row[0] === '.' && row[SIZE - 1] === '.')).toBe(true);
+      expect(hitMask(facing)[ground(name)]).not.toBe(0);
+      // Каждый пиксель тела, включая тонкий хвост и уши, кликабелен; z проходит насквозь.
+      const mask = hitMask(facing);
+      facing.forEach((row, y) => [...row].forEach((c, x) => {
+        expect(Boolean((mask[y] >>> x) & 1)).toBe(c !== '.' && c !== 'z');
+      }));
+    }
+    expect(hitMask(flip(frame))).toEqual(hitMask(frame).map((bits) =>
+      parseInt(bits.toString(2).padStart(SIZE, '0').split('').reverse().join(''), 2)));
+  });
+
+  it.each(basic)('%s — сезонные аксессуары находятся над общей головой', (_, _name, frame) => {
+    expect(dress(frame, null)).toBe(frame);
+    for (const outfit of ['hat', 'pumpkin'] as const) {
+      const dressed = dress(frame, outfit);
+      expect(dressed).not.toEqual(frame);
+      expect(dressed).toHaveLength(SIZE);
+      expect(dressed.every((row) => row.length === SIZE)).toBe(true);
+      expect(dressed.join('')).toContain(outfit === 'hat' ? 'H' : 'o');
+      expect(dress(frame, outfit)).toEqual(dressed);
+    }
+  });
+});
 
 describe('кадры', () => {
   it.each(all)('%s — квадрат SIZE×SIZE только из цветов палитры', (_, f) => {
@@ -35,7 +106,11 @@ describe('кадры', () => {
     for (const f of FATS.flatMap((fat) => ANIMS[fat].sleep.frames)) {
       const mask = hitMask(f);
       expect(width(mask[27])).toBeGreaterThan(15);
-      for (let y = 28; y < SIZE; y++) expect(width(mask[y])).toBeLessThanOrEqual(4);
+      for (let y = 28; y < SIZE; y++) {
+        // Пологий изгиб хвоста из референса занимает до шести клеток по горизонтали.
+        expect(width(mask[y])).toBeLessThanOrEqual(6);
+        expect([...f[y]].every((c) => c === '.' || c === 'p' || c === 'P')).toBe(true);
+      }
     }
   });
 
